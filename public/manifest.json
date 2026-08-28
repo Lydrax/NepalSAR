@@ -1,0 +1,11 @@
+{
+  "name": "Nepal Rescue",
+  "short_name": "Nepal Rescue",
+  "description": "Mobile-first emergency rescue coordination platform for crisis response in Nepal.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "lang": "en"
+}
