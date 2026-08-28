@@ -95,6 +95,8 @@ interface CaseDetailFull extends CaseSummary {
 
 export default function ResponderOperationsPage() {
   const router = useRouter();
+  const detailPanelRef = React.useRef<HTMLDivElement | null>(null);
+  const directoryDossierRef = React.useRef<HTMLDivElement | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentProfile, setCurrentProfile] = useState<{
     id: string;
@@ -275,6 +277,16 @@ export default function ResponderOperationsPage() {
     setSelectedCaseId(id);
     fetchCaseDetail(id);
     setMobileTab('detail');
+
+    // Auto-scroll the detail panel container to the very top so details are immediately visible
+    setTimeout(() => {
+      if (detailPanelRef.current) {
+        detailPanelRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (directoryDossierRef.current && window.innerWidth < 1024) {
+        directoryDossierRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
   };
 
   // Workflow Actions
@@ -619,21 +631,21 @@ export default function ResponderOperationsPage() {
               }`}
             >
               {/* Filters Bar */}
-              <div className="p-3 bg-white border-b border-slate-200 space-y-2.5 shadow-xs">
+              <div className="p-3.5 bg-white border-b border-slate-200 space-y-2.5 shadow-xs">
                 <div className="flex items-center justify-between text-xs text-slate-600 font-mono">
-                  <span className="flex items-center gap-1 font-bold text-slate-900">
-                    <Filter className="w-3.5 h-3.5 text-slate-700" /> ACTIVE DISPATCH QUEUE ({cases.length})
+                  <span className="flex items-center gap-1.5 font-bold text-slate-900 text-xs sm:text-sm">
+                    <Filter className="w-4 h-4 text-slate-700" /> ACTIVE DISPATCH QUEUE ({cases.length})
                   </span>
-                  <span className="text-[11px] text-slate-500">Auto-poll 20s</span>
+                  <span className="text-xs text-slate-500 font-medium">Auto-poll 20s</span>
                 </div>
 
                 {/* Priority Filters */}
-                <div className="flex items-center gap-1 text-[11px] font-semibold">
+                <div className="flex items-center gap-1 text-xs font-semibold">
                   {(['ALL', 'CRITICAL', 'HIGH', 'NORMAL'] as const).map((p) => (
                     <button
                       key={p}
                       onClick={() => setPriorityFilter(p)}
-                      className={`px-2.5 py-1 rounded-lg border transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg border transition-colors ${
                         priorityFilter === p
                           ? 'bg-slate-900 text-white border-slate-900 font-bold'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -645,7 +657,7 @@ export default function ResponderOperationsPage() {
                 </div>
 
                 {/* Status Filters */}
-                <div className="flex items-center gap-1 text-[11px] font-semibold overflow-x-auto pb-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold overflow-x-auto pb-1">
                   {(
                     [
                       { id: 'ACTIVE', label: 'All Active' },
@@ -659,7 +671,7 @@ export default function ResponderOperationsPage() {
                     <button
                       key={st.id}
                       onClick={() => setStatusFilter(st.id)}
-                      className={`px-2.5 py-1 rounded-lg border shrink-0 transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg border shrink-0 transition-colors ${
                         statusFilter === st.id
                           ? 'bg-red-100 text-red-950 border-red-300 font-bold'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
@@ -674,7 +686,7 @@ export default function ResponderOperationsPage() {
               {/* Queue List */}
               <div className="flex-1 overflow-y-auto divide-y divide-slate-200">
                 {cases.filter((c) => !['CLOSED', 'CANCELLED'].includes(c.status)).length === 0 ? (
-                  <div className="p-8 text-center text-slate-500 text-xs font-mono space-y-2">
+                  <div className="p-8 text-center text-slate-500 text-sm font-mono space-y-2">
                     <CheckCircle2 className="w-8 h-8 mx-auto text-slate-400" />
                     <p>No active cases matching current filter.</p>
                   </div>
@@ -689,16 +701,16 @@ export default function ResponderOperationsPage() {
                       <div
                         key={c.id}
                         onClick={() => handleSelectCase(c.id)}
-                        className={`p-3.5 cursor-pointer transition-all ${
+                        className={`p-4 cursor-pointer transition-all ${
                           isSelected
                             ? 'bg-red-50/70 border-l-4 border-red-700 shadow-xs'
                             : 'bg-white hover:bg-slate-50/90'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`text-[10px] font-mono font-black px-2 py-0.5 rounded border ${
+                              className={`text-xs font-mono font-black px-2 py-0.5 rounded border ${
                                 c.priority === 'CRITICAL'
                                   ? 'bg-red-100 text-red-900 border-red-300'
                                   : c.priority === 'HIGH'
@@ -708,39 +720,39 @@ export default function ResponderOperationsPage() {
                             >
                               {c.priority}
                             </span>
-                            <span className="font-mono font-bold text-sm text-slate-900">{c.case_number}</span>
+                            <span className="font-mono font-bold text-base text-slate-900">{c.case_number}</span>
                           </div>
-                          <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" />
+                          <span className="text-xs font-mono text-slate-500 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
                             {formatTimeAgo(c.created_at)}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-1 text-xs text-slate-700 mb-2">
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5 text-slate-500" />
+                        <div className="grid grid-cols-2 gap-1.5 text-sm text-slate-800 mb-2.5">
+                          <span className="flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-slate-500" />
                             <strong>{c.people_count}</strong> {c.people_count === 1 ? 'person' : 'people'}
                           </span>
-                          <span className="flex items-center gap-1 uppercase font-mono text-[11px] text-amber-900 font-semibold">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="flex items-center gap-1.5 uppercase font-mono text-xs text-amber-900 font-semibold">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
                             {c.trapped_status}
                           </span>
-                          <span className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
-                            <Flame className="w-3.5 h-3.5 text-orange-600" />
+                          <span className="flex items-center gap-1.5 font-mono text-xs text-slate-700">
+                            <Flame className="w-4 h-4 text-orange-600" />
                             {c.disaster_type}
                           </span>
-                          <span className="flex items-center gap-1 font-mono text-[11px] text-red-900 font-medium">
-                            <HeartPulse className="w-3.5 h-3.5 text-red-600" />
+                          <span className="flex items-center gap-1.5 font-mono text-xs text-red-900 font-medium">
+                            <HeartPulse className="w-4 h-4 text-red-600" />
                             {c.injury_level}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                          <span className={`px-2.5 py-1 rounded text-xs font-bold ${statusInfo.color}`}>
                             {statusInfo.title}
                           </span>
-                          <span className="text-slate-500 text-[10px] font-mono flex items-center font-bold">
-                            Details <ChevronRight className="w-3 h-3 ml-0.5" />
+                          <span className="text-slate-600 text-xs font-mono flex items-center font-bold">
+                            Details <ChevronRight className="w-3.5 h-3.5 ml-0.5 text-slate-400" />
                           </span>
                         </div>
                       </div>
@@ -767,17 +779,18 @@ export default function ResponderOperationsPage() {
 
             {/* COLUMN 3: SELECTED CASE DETAILS & ACTION PANEL (Desktop: col-span-4, Mobile: tab controlled) */}
             <section
-              className={`lg:col-span-4 bg-slate-50 flex flex-col overflow-y-auto ${
+              ref={detailPanelRef}
+              className={`lg:col-span-4 bg-slate-50 flex flex-col overflow-y-auto scroll-smooth ${
                 mobileTab === 'detail' ? 'flex' : 'hidden lg:flex'
               }`}
             >
               {!selectedCaseDetail ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 text-xs font-mono space-y-3">
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 text-sm font-mono space-y-3">
                   <Navigation className="w-12 h-12 text-slate-400 stroke-1" />
                   <p>Select a case from the queue or map to inspect operational details and initiate response actions.</p>
                 </div>
               ) : (
-                <div className="p-4 space-y-5">
+                <div className="p-4 sm:p-5 space-y-5">
                   {/* Header Details */}
                   <div className="bg-white border border-slate-200 p-5 rounded-xl space-y-3 shadow-xs">
                     <div className="flex items-center justify-between">
@@ -792,18 +805,18 @@ export default function ResponderOperationsPage() {
                       >
                         {selectedCaseDetail.priority}
                       </span>
-                      <span className="font-mono text-xs text-slate-500">
+                      <span className="font-mono text-xs text-slate-500 font-semibold">
                         {formatTimeAgo(selectedCaseDetail.created_at)}
                       </span>
                     </div>
 
                     <div>
-                      <div className="text-2xl font-black font-mono text-slate-900 tracking-wider">
+                      <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-wider">
                         {selectedCaseDetail.case_number}
                       </div>
-                      <div className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 font-mono">
+                      <div className="text-sm text-slate-700 mt-1 flex items-center gap-1.5 font-mono font-semibold">
                         <span>Status:</span>
-                        <strong className="text-slate-900">
+                        <strong className="text-slate-950">
                           {STATUS_DESCRIPTIONS[selectedCaseDetail.status].title}
                         </strong>
                       </div>
@@ -811,14 +824,14 @@ export default function ResponderOperationsPage() {
 
                     {/* Assignment Info */}
                     {selectedCaseDetail.assignedResponderInfo && (
-                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
-                        <span className="text-slate-500 block text-[10px] uppercase font-mono font-bold">
+                      <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-sm space-y-1">
+                        <span className="text-slate-500 block text-xs uppercase font-mono font-bold">
                           Assigned Personnel
                         </span>
-                        <div className="font-bold text-slate-900">
+                        <div className="font-bold text-slate-900 text-base">
                           {selectedCaseDetail.assignedResponderInfo.full_name}
                         </div>
-                        <div className="text-slate-600 text-[11px]">
+                        <div className="text-slate-600 text-xs">
                           {selectedCaseDetail.assignedResponderInfo.organization || 'SAR Agency'} &bull;{' '}
                           {selectedCaseDetail.assignedResponderInfo.role}
                         </div>
@@ -833,20 +846,20 @@ export default function ResponderOperationsPage() {
                     </h3>
 
                     {actionError && (
-                      <div className="p-3 bg-red-50 border border-red-300 text-red-900 text-xs rounded-lg flex items-center gap-2 font-medium">
-                        <AlertTriangle className="w-4 h-4 shrink-0 text-red-700" />
+                      <div className="p-3.5 bg-red-50 border border-red-300 text-red-900 text-sm rounded-lg flex items-center gap-2 font-medium">
+                        <AlertTriangle className="w-5 h-5 shrink-0 text-red-700" />
                         <span>{actionError}</span>
                       </div>
                     )}
 
                     {actionSuccessMessage && (
-                      <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs rounded-lg flex items-center gap-2 font-medium">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-700" />
+                      <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-950 text-sm rounded-lg flex items-center gap-2 font-medium">
+                        <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-700" />
                         <span>{actionSuccessMessage}</span>
                       </div>
                     )}
 
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {/* Action 1: Verify (SUBMITTED -> VERIFIED) */}
                       {selectedCaseDetail.status === 'SUBMITTED' && (
                         <button
@@ -900,7 +913,7 @@ export default function ResponderOperationsPage() {
                         <button
                           onClick={() => setShowCloseModal(true)}
                           disabled={!!actionInProgress || currentProfile?.role === 'RESPONDER'}
-                          className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-xs transition-colors shadow-xs"
+                          className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-colors shadow-xs"
                         >
                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           <span>{currentProfile?.role === 'RESPONDER' ? 'CASE RESCUED (PENDING DISPATCHER CLOSE)' : 'CLOSE & ARCHIVE CASE'}</span>
@@ -914,9 +927,9 @@ export default function ResponderOperationsPage() {
                         <button
                           type="button"
                           onClick={() => setShowCancelModal(true)}
-                          className="w-full py-2 px-3 text-red-700 hover:text-red-900 hover:bg-red-50 rounded-lg text-xs font-bold border border-red-300 flex items-center justify-center gap-1.5 transition-colors"
+                          className="w-full py-2.5 px-3 text-red-700 hover:text-red-900 hover:bg-red-50 rounded-lg text-xs font-bold border border-red-300 flex items-center justify-center gap-1.5 transition-colors"
                         >
-                          <XCircle className="w-3.5 h-3.5" />
+                          <XCircle className="w-4 h-4" />
                           <span>Cancel Request</span>
                         </button>
                       )}
@@ -926,7 +939,7 @@ export default function ResponderOperationsPage() {
                   {/* Requester Contact Phone Box */}
                   {selectedCaseDetail.phone_number ? (
                     <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 shadow-xs">
-                      <span className="text-[11px] text-slate-500 uppercase font-mono font-bold block">
+                      <span className="text-xs text-slate-500 uppercase font-mono font-bold block">
                         Requester Contact Phone
                       </span>
                       <div className="flex items-center justify-between">
@@ -943,37 +956,37 @@ export default function ResponderOperationsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-500 font-mono shadow-xs">
+                    <div className="p-3.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-500 font-mono shadow-xs">
                       No phone number was provided with this request.
                     </div>
                   )}
 
                   {/* Exact Location & Coordinates Box */}
-                  <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-xs shadow-xs">
-                    <span className="text-[11px] text-slate-700 uppercase font-mono font-bold flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-red-700" /> Operational Coordinates
+                  <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-sm shadow-xs">
+                    <span className="text-xs text-slate-700 uppercase font-mono font-bold flex items-center gap-1">
+                      <MapPin className="w-4 h-4 text-red-700" /> Operational Coordinates
                     </span>
                     {selectedCaseDetail.latitude !== null && selectedCaseDetail.longitude !== null ? (
-                      <div className="space-y-1.5">
-                        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded font-mono text-slate-900 grid grid-cols-2 gap-2 font-semibold">
-                          <div>Lat: {selectedCaseDetail.latitude}</div>
-                          <div>Lng: {selectedCaseDetail.longitude}</div>
+                      <div className="space-y-2">
+                        <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg font-mono text-slate-900 grid grid-cols-2 gap-2 text-xs font-semibold">
+                          <div>Lat: <span className="font-bold text-slate-950">{selectedCaseDetail.latitude}</span></div>
+                          <div>Lng: <span className="font-bold text-slate-950">{selectedCaseDetail.longitude}</span></div>
                         </div>
-                        <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600 text-xs">
                           <span>Accuracy: approx {selectedCaseDetail.location_accuracy}m</span>
-                          <span className="uppercase bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px] border border-slate-200">
+                          <span className="uppercase bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[11px] border border-slate-200">
                             {selectedCaseDetail.location_source}
                           </span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-slate-500">GPS coordinates unavailable.</p>
+                      <p className="text-slate-500 text-xs">GPS coordinates unavailable.</p>
                     )}
 
                     {selectedCaseDetail.manual_location_description && (
                       <div className="pt-2 border-t border-slate-100">
-                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Manual Location Text:</span>
-                        <p className="text-slate-800 font-medium mt-0.5">
+                        <span className="text-xs text-slate-500 block uppercase font-bold">Manual Location Text:</span>
+                        <p className="text-slate-900 font-medium text-sm mt-0.5">
                           {selectedCaseDetail.manual_location_description}
                         </p>
                       </div>
@@ -982,29 +995,29 @@ export default function ResponderOperationsPage() {
 
                   {/* Requester Description */}
                   {selectedCaseDetail.description && (
-                    <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs shadow-xs">
-                      <span className="text-[11px] text-slate-700 uppercase font-mono font-bold flex items-center gap-1">
-                        <FileText className="w-3.5 h-3.5 text-slate-500" /> Emergency Situation Description
+                    <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2 text-sm shadow-xs">
+                      <span className="text-xs text-slate-700 uppercase font-mono font-bold flex items-center gap-1">
+                        <FileText className="w-4 h-4 text-slate-500" /> Emergency Situation Description
                       </span>
-                      <p className="text-slate-800 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <p className="text-slate-900 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-sm">
                         {selectedCaseDetail.description}
                       </p>
                     </div>
                   )}
 
                   {/* Chronological Immutable Audit Trail */}
-                  <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs shadow-xs">
-                    <span className="text-[11px] text-slate-700 uppercase font-mono font-bold block">
+                  <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-sm shadow-xs">
+                    <span className="text-xs text-slate-700 uppercase font-mono font-bold block">
                       Immutable Operational Timeline
                     </span>
-                    <div className="space-y-2.5 border-l-2 border-slate-300 pl-3 ml-1 font-mono text-[11px]">
+                    <div className="space-y-3 border-l-2 border-slate-300 pl-3.5 ml-1 font-mono text-xs">
                       {(selectedCaseDetail.auditHistory || []).map((ev) => (
-                        <div key={ev.id} className="relative space-y-0.5">
-                          <div className="flex items-center justify-between text-slate-600">
+                        <div key={ev.id} className="relative space-y-1">
+                          <div className="flex items-center justify-between text-slate-600 text-xs">
                             <span className="font-bold text-slate-900">{ev.event_type}</span>
                             <span>{new Date(ev.created_at).toLocaleTimeString()}</span>
                           </div>
-                          {ev.notes && <p className="text-slate-700 font-sans text-xs">{ev.notes}</p>}
+                          {ev.notes && <p className="text-slate-800 font-sans text-xs bg-slate-50 p-2 rounded border border-slate-200">{ev.notes}</p>}
                         </div>
                       ))}
                     </div>
@@ -1184,15 +1197,15 @@ export default function ResponderOperationsPage() {
             </div>
 
             {/* Right: Selected Case Dossier & Full Audit Inspection */}
-            <div className="lg:col-span-5 sticky top-24 space-y-4">
+            <div ref={directoryDossierRef} className="lg:col-span-5 sticky top-24 space-y-4">
               {!selectedCaseDetail ? (
-                <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500 font-mono text-xs space-y-3 shadow-xs">
+                <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500 font-mono text-sm space-y-3 shadow-xs">
                   <Archive className="w-12 h-12 text-slate-300 mx-auto stroke-1" />
-                  <p className="font-semibold text-slate-700">No Record Selected</p>
-                  <p>Click any archived incident from the directory list on the left to inspect its complete post-operation audit log, responder notes, and final disposition.</p>
+                  <p className="font-semibold text-slate-700 text-base">No Record Selected</p>
+                  <p className="text-xs">Click any archived incident from the directory list on the left to inspect its complete post-operation audit log, responder notes, and final disposition.</p>
                 </div>
               ) : (
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-5">
+                <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-xs space-y-5">
                   {/* Top Dossier Header */}
                   <div className="space-y-2 border-b border-slate-100 pb-4">
                     <div className="flex items-center justify-between">
@@ -1205,31 +1218,31 @@ export default function ResponderOperationsPage() {
                       >
                         {selectedCaseDetail.status === 'CLOSED' ? 'RESOLVED & ARCHIVED' : 'CANCELLED & ARCHIVED'}
                       </span>
-                      <span className="text-xs font-mono text-slate-500">
+                      <span className="text-xs font-mono text-slate-500 font-semibold">
                         {new Date(selectedCaseDetail.created_at).toLocaleDateString()}
                       </span>
                     </div>
 
-                    <div className="text-2xl font-black font-mono text-slate-900 tracking-wider">
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-wider">
                       {selectedCaseDetail.case_number}
                     </div>
 
-                    <p className="text-xs text-slate-600">
-                      Disaster: <strong className="text-slate-900 capitalize">{selectedCaseDetail.disaster_type}</strong> &bull;{' '}
-                      Victims Secured: <strong className="text-slate-900">{selectedCaseDetail.people_count}</strong>
+                    <p className="text-sm text-slate-700">
+                      Disaster: <strong className="text-slate-950 capitalize">{selectedCaseDetail.disaster_type}</strong> &bull;{' '}
+                      Victims Secured: <strong className="text-slate-950">{selectedCaseDetail.people_count}</strong>
                     </p>
                   </div>
 
                   {/* Assigned Responder Info */}
                   {selectedCaseDetail.assignedResponderInfo && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-                      <span className="text-slate-500 uppercase font-mono font-bold text-[10px] block">
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-1">
+                      <span className="text-slate-500 uppercase font-mono font-bold text-xs block">
                         Lead Responding Personnel
                       </span>
-                      <div className="font-bold text-slate-900">
+                      <div className="font-bold text-slate-900 text-base">
                         {selectedCaseDetail.assignedResponderInfo.full_name}
                       </div>
-                      <div className="text-slate-600 text-[11px]">
+                      <div className="text-slate-600 text-xs">
                         {selectedCaseDetail.assignedResponderInfo.organization || 'SAR Dispatch'} &bull;{' '}
                         {selectedCaseDetail.assignedResponderInfo.role}
                       </div>
@@ -1237,11 +1250,11 @@ export default function ResponderOperationsPage() {
                   )}
 
                   {/* Location Information */}
-                  <div className="space-y-1 text-xs">
-                    <span className="font-mono uppercase font-bold text-slate-700 text-[11px] flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-red-700" /> Recorded Coordinates & Location
+                  <div className="space-y-1.5 text-sm">
+                    <span className="font-mono uppercase font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-red-700" /> Recorded Coordinates & Location
                     </span>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 font-mono text-xs">
+                    <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5 font-mono text-xs">
                       {selectedCaseDetail.latitude && selectedCaseDetail.longitude ? (
                         <div>
                           Lat: <strong className="text-slate-900">{selectedCaseDetail.latitude}</strong>, Lng:{' '}
@@ -1251,7 +1264,7 @@ export default function ResponderOperationsPage() {
                         <div className="text-slate-500">No GPS coordinates recorded.</div>
                       )}
                       {selectedCaseDetail.manual_location_description && (
-                        <div className="pt-1 border-t border-slate-200 text-slate-800 font-sans">
+                        <div className="pt-2 border-t border-slate-200 text-slate-800 font-sans text-sm">
                           {selectedCaseDetail.manual_location_description}
                         </div>
                       )}
@@ -1260,9 +1273,9 @@ export default function ResponderOperationsPage() {
 
                   {/* Requester Contact Phone */}
                   {selectedCaseDetail.phone_number && (
-                    <div className="space-y-1 text-xs">
-                      <span className="font-mono uppercase font-bold text-slate-700 text-[11px]">Requester Phone</span>
-                      <div className="font-mono font-bold text-slate-900 p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="space-y-1.5 text-sm">
+                      <span className="font-mono uppercase font-bold text-slate-700 text-xs">Requester Phone</span>
+                      <div className="font-mono font-bold text-slate-900 p-3 bg-slate-50 border border-slate-200 rounded-lg text-base">
                         {selectedCaseDetail.phone_number}
                       </div>
                     </div>
@@ -1270,28 +1283,28 @@ export default function ResponderOperationsPage() {
 
                   {/* Description */}
                   {selectedCaseDetail.description && (
-                    <div className="space-y-1 text-xs">
-                      <span className="font-mono uppercase font-bold text-slate-700 text-[11px]">Original Report</span>
-                      <p className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 leading-relaxed font-sans">
+                    <div className="space-y-1.5 text-sm">
+                      <span className="font-mono uppercase font-bold text-slate-700 text-xs">Original Report</span>
+                      <p className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 leading-relaxed font-sans text-sm">
                         {selectedCaseDetail.description}
                       </p>
                     </div>
                   )}
 
                   {/* Chronological Immutable Audit Trail */}
-                  <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
-                    <span className="font-mono uppercase font-bold text-slate-700 text-[11px] block">
+                  <div className="space-y-2 text-sm pt-2 border-t border-slate-100">
+                    <span className="font-mono uppercase font-bold text-slate-700 text-xs block">
                       Chronological Post-Op Audit Trail
                     </span>
-                    <div className="space-y-3 border-l-2 border-slate-300 pl-3.5 ml-1 font-mono text-[11px]">
+                    <div className="space-y-3 border-l-2 border-slate-300 pl-3.5 ml-1 font-mono text-xs">
                       {(selectedCaseDetail.auditHistory || []).map((ev) => (
-                        <div key={ev.id} className="relative space-y-0.5">
-                          <div className="flex items-center justify-between text-slate-600">
+                        <div key={ev.id} className="relative space-y-1">
+                          <div className="flex items-center justify-between text-slate-600 text-xs">
                             <span className="font-bold text-slate-900">{ev.event_type}</span>
                             <span>{new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                           </div>
                           {ev.notes && (
-                            <p className="text-slate-700 font-sans text-xs bg-slate-50 p-2 rounded border border-slate-200 mt-1">
+                            <p className="text-slate-700 font-sans text-xs bg-slate-50 p-2.5 rounded border border-slate-200 mt-1">
                               {ev.notes}
                             </p>
                           )}

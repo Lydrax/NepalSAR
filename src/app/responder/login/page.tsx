@@ -126,10 +126,10 @@ export default function ResponderLoginPage() {
               </button>
             </form>
 
-            {/* Test Credentials Quick-Fill for Verification */}
+            {/* Official Personnel Credentials */}
             <div className="pt-4 border-t border-slate-200 space-y-2.5">
               <span className="text-[11px] font-mono font-bold uppercase text-slate-500 block">
-                Quick Test Credentials (Supabase Seeded):
+                Official Agency Personnel Credentials:
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const runtime = 'edge';
 import { randomUUID } from 'node:crypto';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hashVerificationToken } from '@/lib/services/tokenAuth';
