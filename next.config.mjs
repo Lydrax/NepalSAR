@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  distDir: '.next-build',
   async headers() {
     return [
       {

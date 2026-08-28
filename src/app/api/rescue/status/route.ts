@@ -25,24 +25,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Malformed JSON body.' }, { status: 400 });
     }
 
-    const caseNumber = body.caseNumber?.trim().toUpperCase();
-    const token = body.verificationToken?.trim();
+    const rawCaseNumber = body.caseNumber?.trim() || '';
+    const rawToken = body.verificationToken?.toString().trim() || '';
 
-    if (!caseNumber || !token) {
+    if (!rawCaseNumber || !rawToken) {
       return NextResponse.json(
-        { error: 'Both caseNumber and verificationToken are required.' },
+        { error: 'Both Case ID and Verification PIN are required.' },
         { status: 400 }
       );
     }
 
-    const tokenHash = hashVerificationToken(token);
+    // Clean inputs: strip hyphens, spaces, and non-alphanumerics for easy typing
+    const cleanCaseNumber = rawCaseNumber.replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+    const tokenHash = hashVerificationToken(rawToken);
     const adminSupabase = getAdminClient();
 
-    // 3. Find matching request
-    const { data: requestRecord, error: requestError } = await adminSupabase
+    // 3. Find matching request (try clean case number, original input, or dash variations)
+    let requestRecord: {
+      id: string;
+      case_number: string;
+      status: RescueCaseStatus;
+      created_at: string;
+      updated_at: string;
+    } | null = null;
+
+    // First query attempt: exact or clean case number
+    const { data: exactMatch } = await adminSupabase
       .from('rescue_requests')
       .select('id, case_number, status, created_at, updated_at')
-      .eq('case_number', caseNumber)
+      .or(`case_number.eq.${cleanCaseNumber},case_number.eq.${rawCaseNumber}`)
+      .limit(1)
       .maybeSingle<{
         id: string;
         case_number: string;
@@ -51,13 +63,34 @@ export async function POST(req: NextRequest) {
         updated_at: string;
       }>();
 
-    if (requestError || !requestRecord) {
+    requestRecord = exactMatch;
+
+    // Fallback: If entered as legacy NR-YYYY-XXXXXX or numeric equivalent
+    if (!requestRecord && cleanCaseNumber.startsWith('NR') && cleanCaseNumber.length >= 10) {
+      const formatted = `NR-${cleanCaseNumber.slice(2, 6)}-${cleanCaseNumber.slice(6)}`;
+      const { data: legacyMatch } = await adminSupabase
+        .from('rescue_requests')
+        .select('id, case_number, status, created_at, updated_at')
+        .eq('case_number', formatted)
+        .limit(1)
+        .maybeSingle<{
+          id: string;
+          case_number: string;
+          status: RescueCaseStatus;
+          created_at: string;
+          updated_at: string;
+        }>();
+      requestRecord = legacyMatch;
+    }
+
+    if (!requestRecord) {
       // Uniform generic message to prevent case ID enumeration
       return NextResponse.json(
-        { error: 'Unable to verify this request. Please check your Case ID and Verification Token.' },
+        { error: 'Unable to verify this request. Please check your Case ID and Verification PIN.' },
         { status: 404 }
       );
     }
+
 
     // 4. Verify token hash
     const { data: accessRecord, error: accessError } = await adminSupabase
@@ -70,7 +103,7 @@ export async function POST(req: NextRequest) {
     if (accessError || !accessRecord) {
       // Uniform generic message to prevent token probing
       return NextResponse.json(
-        { error: 'Unable to verify this request. Please check your Case ID and Verification Token.' },
+        { error: 'Unable to verify this request. Please check your Case ID and Verification PIN.' },
         { status: 404 }
       );
     }

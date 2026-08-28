@@ -50,16 +50,17 @@ export const ne: TranslationKey = {
     mandatoryNotice:
       'तपाईंको अनुरोध दर्ता भएको छ। उद्धार टोलीले यो प्राप्त वा स्वीकार गरिसकेको भन्ने निश्चित छैन।',
     caseIdLabel: 'केस नम्बर (Case ID)',
-    caseTokenLabel: 'प्रमाणीकरण टोकन (यसलाई सुरक्षित राख्नुहोस्)',
+    caseTokenLabel: '६-अङ्कको प्रमाणीकरण पिन (Verification PIN)',
   },
 
   tracking: {
     title: 'उद्धार अनुरोधको स्थिति जाँच गर्नुहोस्',
-    enterCaseId: 'केस नम्बर राख्नुहोस् (जस्तै: NR-2026-000184)',
-    enterToken: 'प्रमाणीकरण टोकन राख्नुहोस्',
+    enterCaseId: 'केस नम्बर राख्नुहोस् (जस्तै: 2026104829)',
+    enterToken: '६-अङ्कको प्रमाणीकरण पिन राख्नुहोस् (जस्तै: 583921)',
     checkStatus: 'स्थिति हेर्नुहोस्',
     currentStatus: 'हालको अवस्था',
     submittedAt: 'दर्ता भएको समय',
     lastUpdate: 'पछिल्लो अपडेट',
   },
+
 };

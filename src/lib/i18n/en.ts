@@ -47,19 +47,20 @@ export const en = {
     requestReceived: 'RESCUE REQUEST RECEIVED',
     mandatoryNotice:
       'Your request has been recorded. It has NOT necessarily been received or accepted by a rescue team.',
-    caseIdLabel: 'Case ID',
-    caseTokenLabel: 'Verification Token (Save this!)',
+    caseIdLabel: 'Case ID Number',
+    caseTokenLabel: '6-Digit Verification PIN (Easy to remember)',
   },
 
   tracking: {
     title: 'Track Rescue Request',
-    enterCaseId: 'Enter Case ID (e.g., NR-2026-000184)',
-    enterToken: 'Enter Verification Token',
-    checkStatus: 'Check Status',
+    enterCaseId: 'Enter Case ID Number (e.g., 2026104829)',
+    enterToken: 'Enter 6-Digit Verification PIN (e.g., 583921)',
+    checkStatus: 'Check Case Status',
     currentStatus: 'Current Status',
     submittedAt: 'Submitted At',
     lastUpdate: 'Last Status Update',
   },
+
 };
 
 export type TranslationKey = typeof en;

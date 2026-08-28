@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateRescueRequestPayload } from '@/lib/validation/rescueRequest';
 import { calculateServerPriority } from '@/lib/services/priorityEngine';
 import { checkRateLimit } from '@/lib/services/rateLimiter';
-import { generateVerificationToken, hashVerificationToken } from '@/lib/services/tokenAuth';
+import {
+  generateVerificationToken,
+  generateNumericCaseNumber,
+  hashVerificationToken,
+} from '@/lib/services/tokenAuth';
 import { getAdminClient, SupabaseConfigError } from '@/lib/supabase/admin';
 import { RescueCaseStatus } from '@/lib/types/emergency';
+
 
 interface RequestSummary {
   id: string;
@@ -92,14 +97,16 @@ export async function POST(req: NextRequest) {
     // 4. Deterministic Server Priority Calculation
     const serverPriority = calculateServerPriority(data.situation, data.injuryLevel);
 
-    // 5. Generate Cryptographic Verification Token
+    // 5. Generate Easy-to-Remember 6-Digit Verification PIN & Numeric Case ID
     const plainVerificationToken = generateVerificationToken();
     const tokenHash = hashVerificationToken(plainVerificationToken);
+    const numericCaseNumber = generateNumericCaseNumber();
 
-    // 6. Insert Request into Database (case_number assigned by DB DEFAULT generate_case_number())
+    // 6. Insert Request into Database with clean numeric Case ID (no hyphens)
     const { data: insertedRequest, error: insertError } = await adminSupabase
       .from('rescue_requests')
       .insert({
+        case_number: numericCaseNumber,
         client_request_id: data.clientRequestId,
         latitude: data.location.latitude,
         longitude: data.location.longitude,
@@ -119,6 +126,7 @@ export async function POST(req: NextRequest) {
       })
       .select('id, case_number, status, created_at')
       .single<RequestSummary>();
+
 
     if (insertError || !insertedRequest) {
       // Check if duplicate race occurred

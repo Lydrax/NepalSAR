@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
@@ -37,6 +37,7 @@ import {
 } from '@/lib/constants/emergency';
 import { Header } from '@/components/ui/Header';
 import { DisclaimerBanner } from '@/components/ui/DisclaimerBanner';
+import CaseTrackingProgressBar from '@/components/track/CaseTrackingProgressBar';
 import {
   getRescueCredentialsByClientRequestId,
   saveRescueCredentials,
@@ -45,8 +46,8 @@ import {
 const RequestLocationMap = dynamic(() => import('@/components/request/RequestLocationMap'), {
   ssr: false,
   loading: () => (
-    <div className="min-h-[280px] rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-400 text-xs font-mono">
-      Loading map...
+    <div className="min-h-[280px] rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-mono">
+      Loading map engine...
     </div>
   ),
 });
@@ -160,23 +161,26 @@ export default function RequestRescuePage() {
     );
   };
 
-  const handleMapLocationSelect = (coords: {
-    latitude: number;
-    longitude: number;
-    source: 'MAP';
-    accuracy: number | null;
-    timestamp: string;
-  }) => {
-    setLocation((current) => ({
-      ...current,
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      accuracy: coords.accuracy,
-      timestamp: coords.timestamp,
-      source: coords.source,
-    }));
-    setLocationError(null);
-  };
+  const handleMapLocationSelect = useCallback(
+    (coords: {
+      latitude: number;
+      longitude: number;
+      source: 'MAP';
+      accuracy: number | null;
+      timestamp: string;
+    }) => {
+      setLocation((current) => ({
+        ...current,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        timestamp: coords.timestamp,
+        source: coords.source,
+      }));
+      setLocationError(null);
+    },
+    []
+  );
 
   // Submission Handler
   const handleSubmit = async () => {
@@ -279,21 +283,21 @@ export default function RequestRescuePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col justify-between bg-slate-50 text-slate-900">
       <div>
         <Header currentLang={lang} onLanguageChange={setLang} />
         <DisclaimerBanner t={t} lang={lang} />
 
-        <main className="max-w-xl mx-auto px-4 py-6">
+        <main className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
           {currentStep <= totalSteps && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-mono">
-                <span>STEP {currentStep} OF {totalSteps}</span>
-                <span>{Math.round((currentStep / totalSteps) * 100)}% COMPLETED</span>
+            <div className="mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between text-xs text-slate-600 mb-2 font-mono font-semibold">
+                <span className="uppercase tracking-wider">Step {currentStep} of {totalSteps}</span>
+                <span>{Math.round((currentStep / totalSteps) * 100)}% Completed</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
                 <div
-                  className="bg-red-600 h-2 transition-all duration-300 ease-out"
+                  className="bg-red-700 h-2.5 transition-all duration-300 ease-out"
                   style={{ width: `${(currentStep / totalSteps) * 100}%` }}
                 />
               </div>
@@ -302,13 +306,13 @@ export default function RequestRescuePage() {
 
           {/* STEP 1: LOCATION */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <MapPin className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <MapPin className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step1Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step1Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step1Prompt}</p>
               </div>
 
               {/* Primary GPS button */}
@@ -316,36 +320,36 @@ export default function RequestRescuePage() {
                 type="button"
                 onClick={handleAcquireLocation}
                 disabled={isLocating}
-                className="w-full py-4 px-4 bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors"
+                className="w-full py-4 px-4 bg-red-700 hover:bg-red-800 active:bg-red-900 disabled:bg-slate-200 disabled:text-slate-500 text-white font-bold rounded-xl flex items-center justify-center gap-2.5 shadow-xs transition-colors"
               >
                 <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin' : ''}`} />
-                <span>{isLocating ? 'Acquiring GPS Location...' : t.actions.useMyLocation}</span>
+                <span>{isLocating ? 'Acquiring GPS Signal...' : t.actions.useMyLocation}</span>
               </button>
 
               {/* GPS Result Indicator */}
               {location.latitude !== null && location.longitude !== null && (
-                <div className="p-4 bg-slate-900 border border-emerald-600/40 rounded-xl space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                    <CheckCircle2 className="w-5 h-5" />
+                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2.5 text-sm">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700" />
                     <span>{t.status.locationDetected}</span>
                   </div>
-                  <div className="font-mono text-xs text-slate-300 grid grid-cols-2 gap-2 bg-slate-950 p-2.5 rounded">
-                    <div>Lat: {location.latitude}</div>
-                    <div>Lng: {location.longitude}</div>
+                  <div className="font-mono text-xs text-slate-900 grid grid-cols-2 gap-2 bg-white p-3 rounded-lg border border-emerald-200 shadow-xs">
+                    <div><span className="text-slate-500 font-semibold">LATITUDE:</span> {location.latitude}</div>
+                    <div><span className="text-slate-500 font-semibold">LONGITUDE:</span> {location.longitude}</div>
                   </div>
-                  <div className="text-xs text-slate-400 flex items-center justify-between">
+                  <div className="text-xs text-slate-700 flex items-center justify-between">
                     <span>
-                      Location accuracy: approximately <strong className="text-slate-200">{location.accuracy} {t.status.meters}</strong>
+                      Accuracy: approximately <strong className="text-slate-900">{location.accuracy} {t.status.meters}</strong>
                     </span>
-                    <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 uppercase">
+                    <span className="text-[10px] bg-emerald-100 text-emerald-900 font-bold px-2 py-0.5 rounded border border-emerald-300 uppercase">
                       SOURCE: {location.source}
                     </span>
                   </div>
                   {location.accuracy && location.accuracy > 100 && (
-                    <div className="text-xs text-amber-300 bg-amber-950/60 p-3 rounded-lg border border-amber-800/40 space-y-1">
-                      <p className="font-semibold">Your location is approximate.</p>
-                      <p className="text-amber-300/90">
-                        If possible, move to an open area or describe your location manually below so responders can pinpoint you.
+                    <div className="text-xs text-amber-900 bg-amber-50 p-3 rounded-lg border border-amber-300 space-y-1">
+                      <p className="font-bold">GPS Accuracy is Approximate</p>
+                      <p className="text-amber-800">
+                        Please describe landmarks or specify your exact location manually below to aid dispatchers.
                       </p>
                     </div>
                   )}
@@ -354,7 +358,7 @@ export default function RequestRescuePage() {
 
               {/* Location Error / Fallback message */}
               {locationError && (
-                <div className="p-3 bg-red-950/60 border border-red-800 text-red-200 text-xs rounded-xl">
+                <div className="p-3.5 bg-red-50 border border-red-300 text-red-900 text-xs rounded-xl font-medium">
                   {locationError}
                 </div>
               )}
@@ -362,17 +366,17 @@ export default function RequestRescuePage() {
               {/* Interactive Leaflet map fallback */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between gap-3">
-                  <label className="block text-sm font-semibold text-slate-200">
+                  <label className="block text-sm font-bold text-slate-800">
                     {t.actions.selectOnMap}
                   </label>
-                  <span className="text-[11px] text-slate-500 font-mono uppercase">
+                  <span className="text-[11px] text-slate-500 font-mono font-semibold uppercase">
                     {location.latitude !== null && location.longitude !== null
                       ? `PIN SET VIA ${location.source}`
                       : 'NO PIN SELECTED'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  If GPS is unavailable or inaccurate, tap the map to choose the best rescue location.
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Tap or click the map to select the precise incident point.
                 </p>
                 <div className="h-[320px]">
                   <RequestLocationMap
@@ -385,24 +389,25 @@ export default function RequestRescuePage() {
 
               {/* Manual Location Fallback Input */}
               <div className="space-y-2 pt-2">
-                <label className="block text-sm font-semibold text-slate-200">
-                  {t.actions.enterDescription} <span className="text-xs text-slate-400 font-normal">(Required if GPS fails)</span>
+                <label className="block text-sm font-bold text-slate-800">
+                  {t.actions.enterDescription} <span className="text-xs text-slate-500 font-normal">(Required if GPS coordinates fail)</span>
                 </label>
                 <textarea
                   value={location.manualDescription}
-                  onChange={(e) =>
-                    setLocation({
-                      ...location,
-                      manualDescription: e.target.value,
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setLocation((prev) => ({
+                      ...prev,
+                      manualDescription: text,
                       source:
-                        location.latitude !== null && location.longitude !== null
-                          ? location.source
+                        prev.latitude !== null && prev.longitude !== null
+                          ? prev.source
                           : 'MANUAL',
-                    })
-                  }
+                    }));
+                  }}
                   placeholder="e.g. Near Timure checkpoint, beside the bridge, red house on 2nd floor"
                   rows={3}
-                  className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:outline-none text-sm"
+                  className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none text-sm"
                 />
               </div>
             </div>
@@ -410,44 +415,44 @@ export default function RequestRescuePage() {
 
           {/* STEP 2: PEOPLE COUNT */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <Users className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <Users className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step2Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step2Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step2Prompt}</p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center space-y-6">
-                <div className="text-5xl font-black text-white font-mono">{peopleCount}</div>
+              <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl text-center space-y-6">
+                <div className="text-6xl font-black text-slate-900 font-mono">{peopleCount}</div>
                 <div className="flex items-center justify-center gap-4">
                   <button
                     type="button"
                     onClick={() => setPeopleCount(Math.max(1, peopleCount - 1))}
-                    className="w-14 h-14 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-2xl font-bold border border-slate-700 flex items-center justify-center transition-colors"
+                    className="w-14 h-14 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 text-2xl font-black border border-slate-300 flex items-center justify-center shadow-xs transition-colors"
                   >
                     -
                   </button>
                   <button
                     type="button"
                     onClick={() => setPeopleCount(Math.min(100, peopleCount + 1))}
-                    className="w-14 h-14 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-2xl font-bold border border-slate-700 flex items-center justify-center transition-colors"
+                    className="w-14 h-14 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 text-2xl font-black border border-slate-300 flex items-center justify-center shadow-xs transition-colors"
                   >
                     +
                   </button>
                 </div>
 
-                <div className="flex justify-center gap-2">
-                  {[1, 2, 4, 8, 15].map((count) => (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {[1, 2, 4, 8, 15, 25].map((count) => (
                     <button
                       key={count}
                       type="button"
                       onClick={() => setPeopleCount(count)}
-                      className={`px-3 py-1.5 text-xs rounded font-semibold border ${
+                      className={`px-3 py-1.5 text-xs rounded-lg font-bold border transition-colors ${
                         peopleCount === count
-                          ? 'bg-red-600 border-red-500 text-white'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                          ? 'bg-red-700 border-red-700 text-white'
+                          : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       {count} {count === 1 ? 'Person' : 'People'}
@@ -460,13 +465,13 @@ export default function RequestRescuePage() {
 
           {/* STEP 3: IMMEDIATE DANGER */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <AlertTriangle className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <AlertTriangle className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step3Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step3Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step3Prompt}</p>
               </div>
 
               <div className="grid gap-3">
@@ -477,28 +482,28 @@ export default function RequestRescuePage() {
                     onClick={() => setSituation(opt.id)}
                     className={`p-4 rounded-xl text-left border transition-all flex items-center justify-between ${
                       situation === opt.id
-                        ? 'bg-red-950/60 border-red-500 text-white ring-2 ring-red-500'
-                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                        ? 'bg-red-50/70 border-red-600 text-red-950 ring-1 ring-red-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
                     }`}
                   >
                     <div>
-                      <div className="font-bold text-base text-white">{opt.label}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{opt.description}</div>
+                      <div className="font-bold text-base text-slate-900">{opt.label}</div>
+                      <div className="text-xs text-slate-600 mt-0.5">{opt.description}</div>
                     </div>
-                    {situation === opt.id && <CheckCircle2 className="w-5 h-5 text-red-400 shrink-0 ml-2" />}
+                    {situation === opt.id && <CheckCircle2 className="w-5 h-5 text-red-700 shrink-0 ml-2" />}
                   </button>
                 ))}
               </div>
 
               {situation === 'other' && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">Specify situation:</label>
+                <div className="space-y-1 pt-2">
+                  <label className="text-xs font-bold text-slate-800">Specify situation:</label>
                   <input
                     type="text"
                     value={situationOther}
                     onChange={(e) => setSituationOther(e.target.value)}
-                    placeholder="Describe emergency situation..."
-                    className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-red-500"
+                    placeholder="Describe emergency danger..."
+                    className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600"
                   />
                 </div>
               )}
@@ -507,13 +512,13 @@ export default function RequestRescuePage() {
 
           {/* STEP 4: INJURY STATUS */}
           {currentStep === 4 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <HeartPulse className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <HeartPulse className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step4Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step4Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step4Prompt}</p>
               </div>
 
               <div className="grid gap-3">
@@ -524,16 +529,14 @@ export default function RequestRescuePage() {
                     onClick={() => setInjuryLevel(opt.id)}
                     className={`p-4 rounded-xl text-left border transition-all flex items-center justify-between ${
                       injuryLevel === opt.id
-                        ? 'bg-slate-900 border-red-500 text-white ring-2 ring-red-500'
-                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                        ? 'bg-red-50/70 border-red-600 text-red-950 ring-1 ring-red-600'
+                        : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className={`px-2.5 py-1 rounded text-xs uppercase font-mono ${opt.severityBadge}`}>
-                        {opt.label}
-                      </span>
+                      <span className="font-bold text-slate-900 text-sm">{opt.label}</span>
                     </div>
-                    {injuryLevel === opt.id && <CheckCircle2 className="w-5 h-5 text-red-400 shrink-0" />}
+                    {injuryLevel === opt.id && <CheckCircle2 className="w-5 h-5 text-red-700 shrink-0" />}
                   </button>
                 ))}
               </div>
@@ -542,25 +545,25 @@ export default function RequestRescuePage() {
 
           {/* STEP 5: DISASTER TYPE */}
           {currentStep === 5 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <Flame className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <Flame className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step5Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step5Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step5Prompt}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 {DISASTER_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => setDisasterType(opt.id)}
-                    className={`p-3.5 rounded-xl text-left border transition-all ${
+                    className={`p-4 rounded-xl text-left border transition-all ${
                       disasterType === opt.id
-                        ? 'bg-red-950/60 border-red-500 text-white ring-2 ring-red-500 font-bold'
-                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850'
+                        ? 'bg-red-50/70 border-red-600 text-red-950 ring-1 ring-red-600 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100 font-medium'
                     }`}
                   >
                     {opt.label}
@@ -569,14 +572,14 @@ export default function RequestRescuePage() {
               </div>
 
               {disasterType === 'other' && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">Specify disaster/hazard:</label>
+                <div className="space-y-1 pt-2">
+                  <label className="text-xs font-bold text-slate-800">Specify hazard type:</label>
                   <input
                     type="text"
                     value={disasterOther}
                     onChange={(e) => setDisasterOther(e.target.value)}
                     placeholder="Specify hazard..."
-                    className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-red-500"
+                    className="w-full p-3 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600"
                   />
                 </div>
               )}
@@ -585,13 +588,13 @@ export default function RequestRescuePage() {
 
           {/* STEP 6: ADDITIONAL INFORMATION */}
           {currentStep === 6 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <FileText className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <FileText className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step6Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step6Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step6Prompt}</p>
               </div>
 
               <div className="space-y-2">
@@ -601,7 +604,7 @@ export default function RequestRescuePage() {
                   placeholder="e.g. We are trapped on the second floor. Water is entering the building rapidly. Two elderly persons with us."
                   rows={5}
                   maxLength={1000}
-                  className="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:outline-none text-sm"
+                  className="w-full p-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none text-sm"
                 />
                 <div className="text-right text-xs text-slate-500 font-mono">
                   {description.length} / 1000 characters
@@ -612,43 +615,43 @@ export default function RequestRescuePage() {
 
           {/* STEP 7: CONTACT INFORMATION */}
           {currentStep === 7 && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                  <Phone className="w-6 h-6 text-red-500" />
+            <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                  <Phone className="w-6 h-6 text-red-700 shrink-0" />
                   {t.steps.step7Title}
                 </h2>
-                <p className="text-slate-300 text-sm">{t.steps.step7Prompt}</p>
+                <p className="text-slate-600 text-sm">{t.steps.step7Prompt}</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="space-y-2">
                   <input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="e.g. 98XXXXXXXX"
-                    className="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-lg font-mono tracking-wider focus:ring-2 focus:ring-red-500 focus:outline-none"
+                    className="w-full p-4 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 text-lg font-mono tracking-wider focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none shadow-xs"
                   />
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Phone numbers are kept strictly confidential and only visible to authorized response personnel.
                   </p>
                 </div>
 
                 {/* Priority Preview based on deterministic rules */}
-                <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-                  <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <div className="text-xs text-slate-600 font-bold uppercase tracking-wider">
                     Operational Triage Preview
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-300">Initial Priority:</span>
+                    <span className="text-sm text-slate-700 font-medium">Calculated Priority:</span>
                     <span
-                      className={`text-xs font-mono font-bold px-2.5 py-1 rounded ${
+                      className={`text-xs font-mono font-bold px-2.5 py-1 rounded border ${
                         calculatePriority(situation, injuryLevel) === 'CRITICAL'
-                          ? 'bg-red-950 text-red-300 border border-red-700'
+                          ? 'bg-red-100 text-red-900 border-red-300'
                           : calculatePriority(situation, injuryLevel) === 'HIGH'
-                          ? 'bg-orange-950 text-orange-300 border border-orange-700'
-                          : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          ? 'bg-orange-100 text-orange-900 border-orange-300'
+                          : 'bg-blue-100 text-blue-900 border-blue-300'
                       }`}
                     >
                       {calculatePriority(situation, injuryLevel)}
@@ -658,9 +661,9 @@ export default function RequestRescuePage() {
 
                 {/* Network Error / Failure notification */}
                 {networkError && (
-                  <div className="p-4 bg-red-950/90 border border-red-700 rounded-xl text-red-200 text-xs space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-red-300">
-                      <WifiOff className="w-4 h-4" />
+                  <div className="p-4 bg-red-50 border border-red-300 rounded-xl text-red-900 text-xs space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-red-950">
+                      <WifiOff className="w-4 h-4 text-red-700" />
                       <span>Connection Unavailable</span>
                     </div>
                     <p className="leading-relaxed">
@@ -670,7 +673,7 @@ export default function RequestRescuePage() {
                       type="button"
                       onClick={handleSubmit}
                       disabled={isSubmitting}
-                      className="mt-2 py-2 px-3 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg flex items-center gap-1.5 text-xs transition-colors"
+                      className="mt-2 py-2 px-3 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg flex items-center gap-1.5 text-xs transition-colors"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSubmitting ? 'animate-spin' : ''}`} />
                       <span>{isSubmitting ? 'Retrying...' : 'Retry Submission'}</span>
@@ -683,95 +686,92 @@ export default function RequestRescuePage() {
 
           {/* STEP 8: SUBMISSION SUCCESS & CASE TRACKING CODE */}
           {currentStep === 8 && submissionResult && (
-            <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-xs space-y-6">
               <div className="text-center space-y-2">
-                <div className="inline-flex items-center justify-center p-3 bg-emerald-950/60 border border-emerald-800 rounded-full text-emerald-400 mb-2">
+                <div className="inline-flex items-center justify-center p-3 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-700 mb-2">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
-                <h1 className="text-2xl font-black text-white uppercase tracking-wide">
+                <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
                   {submissionResult.isExisting
                     ? 'Existing Request Found'
                     : t.status.requestReceived}
                 </h1>
                 {submissionResult.isExisting && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-600">
                     This request was already submitted. No duplicate case was created.
                   </p>
                 )}
               </div>
 
-              {/* Case ID Display */}
-              <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
-                <div className="text-center space-y-2">
-                  <div className="text-xs text-slate-400 uppercase font-mono tracking-widest">
-                    {t.status.caseIdLabel}
-                  </div>
-                  <div className="text-3xl font-mono font-black text-red-500 tracking-wider">
-                    {submissionResult.caseNumber}
-                  </div>
-                  <button
-                    onClick={copyCaseId}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs rounded border border-slate-700"
-                  >
-                    {copiedCase ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedCase ? 'Case ID Copied' : 'Copy Case ID'}</span>
-                  </button>
-                </div>
-
-                {/* Secure Verification Token Box */}
-                {submissionResult.tokenUnavailable ? (
-                  <div className="p-4 bg-slate-950 rounded-xl border border-amber-800/40 space-y-2.5">
-                    <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">
-                      Verification Credential Unavailable
+              {/* Numeric Credentials Box (No confusing hyphens or symbols) */}
+              <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Case ID Number */}
+                  <div className="bg-white border border-slate-200 p-4 rounded-xl text-center space-y-1.5 shadow-xs">
+                    <div className="text-[11px] text-slate-500 uppercase font-mono font-bold tracking-wider">
+                      {t.status.caseIdLabel}
                     </div>
-                    <p className="text-xs text-amber-200/90 leading-relaxed">
-                      Your existing request <strong>{submissionResult.caseNumber}</strong> was found,
-                      but the original verification credential cannot be recovered from this device or
-                      the server. If you saved it elsewhere, use it on the tracking page. Otherwise,
-                      contact official emergency hotlines and reference your Case ID.
-                    </p>
+                    <div className="text-2xl sm:text-3xl font-mono font-black text-slate-900 tracking-widest select-all">
+                      {submissionResult.caseNumber}
+                    </div>
+                    <button
+                      onClick={copyCaseId}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md border border-slate-300 shadow-xs transition-colors"
+                    >
+                      {copiedCase ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-600" />}
+                      <span>{copiedCase ? 'Case ID Copied' : 'Copy Case ID'}</span>
+                    </button>
                   </div>
-                ) : (
-                  <div className="p-4 bg-slate-950 rounded-xl border border-amber-800/40 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-amber-400 font-bold uppercase tracking-wider">
+
+                  {/* 6-Digit Verification PIN */}
+                  {!submissionResult.tokenUnavailable ? (
+                    <div className="bg-amber-50/70 border border-amber-300 p-4 rounded-xl text-center space-y-1.5 shadow-xs">
+                      <div className="text-[11px] text-amber-950 uppercase font-mono font-bold tracking-wider">
                         {t.status.caseTokenLabel}
-                      </span>
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-mono font-black text-amber-950 tracking-widest select-all">
+                        {submissionResult.accessToken}
+                      </div>
                       <button
                         onClick={copyToken}
-                        className="px-2.5 py-1 bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 rounded border border-amber-700/60 text-xs shrink-0 flex items-center gap-1 font-semibold"
-                        aria-label="Copy Verification Token"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-white hover:bg-amber-100 text-amber-950 text-xs font-semibold rounded-md border border-amber-300 shadow-xs transition-colors"
                       >
-                        {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedToken ? 'Copied' : 'Copy Code'}</span>
+                        {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-amber-800" />}
+                        <span>{copiedToken ? 'PIN Copied' : 'Copy PIN'}</span>
                       </button>
                     </div>
-                    {submissionResult.tokenRecovered && (
-                      <p className="text-[11px] text-emerald-300/90">
-                        Your saved verification credential was restored from this device.
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-left space-y-1">
+                      <div className="text-xs text-amber-900 font-bold uppercase">
+                        PIN Unavailable
+                      </div>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        Use your saved PIN to track or contact dispatch with your Case ID.
                       </p>
-                    )}
-                    <div className="font-mono text-xs text-amber-200 break-all select-all bg-slate-900/90 p-2.5 rounded border border-slate-800">
-                      {submissionResult.accessToken}
                     </div>
-                    <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                      <strong>Keep this verification code.</strong> You will need it to check your request later. The verification code cannot be recovered if lost.
-                    </p>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Status Indicator */}
-                <div className="flex items-center justify-between p-3 bg-amber-950/40 border border-amber-800/40 rounded-xl text-amber-200 text-sm">
-                  <span className="font-semibold">Current Status:</span>
-                  <span className="font-mono font-bold bg-amber-700/80 px-2 py-0.5 rounded text-white text-xs">
-                    {submissionResult.status}
-                  </span>
+                <div className="text-center text-xs text-slate-600">
+                  <p>
+                    <span className="font-semibold text-slate-800">Save both numbers.</span> You will use your numeric Case ID and 6-digit PIN to check status.
+                  </p>
+                </div>
+
+                {/* Real-time Case Progress Loading Bar with Circles */}
+                <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+                  <CaseTrackingProgressBar
+                    status={submissionResult.status}
+                    submittedAt={submissionResult.submittedAt}
+                    isCompact={false}
+                  />
                 </div>
               </div>
 
-              {/* MANDATORY DISTINCTION NOTICE (Section 1 & 12) */}
-              <div className="p-4 bg-slate-900 border-l-4 border-amber-500 rounded-r-xl space-y-1.5 text-sm text-slate-300">
-                <p className="font-bold text-amber-400">Important Operational Notice:</p>
+
+              {/* MANDATORY DISTINCTION NOTICE */}
+              <div className="p-4 bg-amber-50 border-l-4 border-amber-600 rounded-r-xl space-y-1.5 text-sm text-amber-950">
+                <p className="font-bold text-amber-900">Important Operational Notice:</p>
                 <p className="leading-relaxed text-xs sm:text-sm">
                   Your request has been received by this system. This does not mean that a rescue team has accepted or been dispatched to the request. If possible, contact official emergency hotlines directly.
                 </p>
@@ -780,13 +780,13 @@ export default function RequestRescuePage() {
               <div className="space-y-3 pt-2">
                 <Link
                   href="/track"
-                  className="w-full flex items-center justify-center py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl border border-slate-700 text-center transition-colors"
+                  className="w-full flex items-center justify-center py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-center transition-colors shadow-xs"
                 >
                   Go to Case Tracking
                 </Link>
                 <Link
                   href="/"
-                  className="w-full flex items-center justify-center py-3 text-slate-400 hover:text-slate-200 text-xs text-center"
+                  className="w-full flex items-center justify-center py-3 text-slate-600 hover:text-slate-900 text-xs font-medium text-center"
                 >
                   {t.actions.backToHome}
                 </Link>
@@ -796,12 +796,12 @@ export default function RequestRescuePage() {
 
           {/* Navigation Controls (Previous / Next / Submit) */}
           {currentStep <= totalSteps && (
-            <div className="mt-8 pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+            <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
               {currentStep > 1 ? (
                 <button
                   type="button"
                   onClick={() => setCurrentStep(currentStep - 1)}
-                  className="py-3 px-5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 flex items-center gap-1.5 text-sm"
+                  className="py-3 px-5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl border border-slate-300 flex items-center gap-1.5 text-sm shadow-xs transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>{t.actions.previous}</span>
@@ -809,7 +809,7 @@ export default function RequestRescuePage() {
               ) : (
                 <Link
                   href="/"
-                  className="py-3 px-5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 flex items-center gap-1.5 text-sm"
+                  className="py-3 px-5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl border border-slate-300 flex items-center gap-1.5 text-sm shadow-xs transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Home</span>
@@ -832,7 +832,7 @@ export default function RequestRescuePage() {
                     setLocationError(null);
                     setCurrentStep(currentStep + 1);
                   }}
-                  className="py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center gap-1.5 text-sm ml-auto shadow"
+                  className="py-3 px-6 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl flex items-center gap-1.5 text-sm ml-auto shadow-xs transition-colors"
                 >
                   <span>{t.actions.next}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -842,7 +842,7 @@ export default function RequestRescuePage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="py-3.5 px-6 bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-slate-800 text-white font-black rounded-xl flex items-center gap-2 text-base ml-auto shadow-lg shadow-red-950 transition-all"
+                  className="py-3.5 px-6 bg-red-700 hover:bg-red-800 active:bg-red-900 disabled:bg-slate-300 disabled:text-slate-500 text-white font-black rounded-xl flex items-center gap-2 text-base ml-auto shadow-sm transition-all"
                 >
                   <span>{isSubmitting ? 'Submitting request...' : t.actions.submit}</span>
                 </button>

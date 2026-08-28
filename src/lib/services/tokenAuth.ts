@@ -1,19 +1,32 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 
 /**
- * Generates a high-entropy, cryptographically secure verification token.
- * Example format: "nrt_v1_7f8a9b2c..."
+ * Generates an easy-to-remember, pure numeric 6-digit verification PIN (e.g. "583921").
+ * Contains no hyphens, letters, or confusing symbols.
  */
 export function generateVerificationToken(): string {
-  const bytes = randomBytes(24).toString('hex');
-  return `nrt_v1_${bytes}`;
+  // Generates a cryptographically secure 6-digit integer between 100000 and 999999
+  const pin = randomInt(100000, 1000000);
+  return pin.toString();
+}
+
+/**
+ * Generates a clean numeric Case ID without hyphens.
+ * Format: 4-digit Year + 6-digit unique numeric sequence/random (e.g. "2026001429").
+ */
+export function generateNumericCaseNumber(): string {
+  const year = new Date().getFullYear().toString();
+  const sequenceNum = randomInt(100000, 1000000).toString();
+  return `${year}${sequenceNum}`;
 }
 
 /**
  * Computes the SHA-256 cryptographic hash of a verification token for secure database storage.
  */
 export function hashVerificationToken(token: string): string {
-  return createHash('sha256').update(token.trim()).digest('hex');
+  // Strip any accidental surrounding spaces or dashes
+  const clean = token.replace(/[^0-9a-zA-Z]/g, '').trim();
+  return createHash('sha256').update(clean).digest('hex');
 }
 
 /**
@@ -24,3 +37,4 @@ export function verifyTokenMatch(plainToken: string, storedHash: string): boolea
   const computedHash = hashVerificationToken(plainToken);
   return computedHash.toLowerCase() === storedHash.toLowerCase();
 }
+

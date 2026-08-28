@@ -13,27 +13,27 @@ export const DisclaimerBanner: React.FC<DisclaimerBannerProps> = ({ t, lang = 'e
   const verifiedContacts = getVerifiedEmergencyContacts();
 
   return (
-    <div className="bg-amber-950/70 border-b border-amber-600/40 px-4 py-3 text-amber-200 text-xs sm:text-sm">
-      <div className="max-w-3xl mx-auto flex items-start gap-2.5">
-        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
-        <div className="space-y-1.5 w-full">
-          <p className="font-semibold text-amber-300">
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-amber-950 text-xs sm:text-sm">
+      <div className="max-w-4xl mx-auto flex items-start gap-2.5">
+        <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="space-y-1 w-full">
+          <p className="font-semibold text-amber-900 leading-snug">
             {t.disclaimer}
           </p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-amber-300/80 pt-1 border-t border-amber-800/40">
-            <span className="flex items-center gap-1 font-medium text-amber-200 shrink-0">
-              <PhoneCall className="w-3.5 h-3.5" />
-              {t.officialNumbersHeading}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-amber-900/90 pt-1 border-t border-amber-200/80">
+            <span className="flex items-center gap-1 font-bold text-amber-950 shrink-0">
+              <PhoneCall className="w-3.5 h-3.5 text-amber-800" />
+              {t.officialNumbersHeading}:
             </span>
             {verifiedContacts.map((contact) => (
               <a
                 key={contact.id}
                 href={contact.dialUrl}
-                className="underline font-bold hover:text-white inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1 font-semibold text-amber-950 hover:text-red-700 bg-amber-100/70 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition-colors"
                 title={`${contact.nameEn} - ${contact.agency}`}
               >
-                <span>{lang === 'ne' ? contact.nameNe : contact.nameEn}:</span>
-                <span className="font-mono">{contact.number}</span>
+                <span>{lang === 'ne' ? contact.nameNe : contact.nameEn}</span>
+                <span className="font-mono font-bold text-red-700">({contact.number})</span>
               </a>
             ))}
           </div>

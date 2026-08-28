@@ -57,10 +57,21 @@ export function validateRescueRequestPayload(
   // 1. Client Request ID (clientRequestId or client_request_id)
   const rawClientId = raw.clientRequestId ?? raw.client_request_id;
   let clientRequestId = '';
-  if (typeof rawClientId === 'string' && UUID_REGEX.test(rawClientId)) {
-    clientRequestId = rawClientId;
+  if (typeof rawClientId === 'string' && UUID_REGEX.test(rawClientId.trim())) {
+    clientRequestId = rawClientId.trim().toLowerCase();
+  } else if (typeof rawClientId === 'string' && rawClientId.trim().length >= 8 && rawClientId.trim().length <= 64) {
+    clientRequestId = rawClientId.trim();
   } else {
-    errors.push('clientRequestId must be a valid UUIDv4.');
+    // Generate UUID server-side if client didn't supply a valid one
+    clientRequestId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+            (
+              Number(c) ^
+              (Math.random() * 16 >> (Number(c) / 4))
+            ).toString(16)
+          );
   }
 
   // 2. People Count (peopleCount or people_count)

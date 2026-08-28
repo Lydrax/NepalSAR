@@ -6,8 +6,8 @@ import { RescueCaseStatus } from '../types/emergency';
  */
 export const ALLOWED_TRANSITIONS: Record<RescueCaseStatus, RescueCaseStatus[]> = {
   SUBMITTED: ['VERIFIED', 'CANCELLED'],
-  VERIFIED: ['ASSIGNED', 'CANCELLED'],
-  ASSIGNED: ['RESCUER_EN_ROUTE', 'CANCELLED'],
+  VERIFIED: ['ASSIGNED', 'RESCUER_EN_ROUTE', 'CANCELLED'],
+  ASSIGNED: ['RESCUER_EN_ROUTE', 'RESCUED', 'CANCELLED'],
   RESCUER_EN_ROUTE: ['RESCUED', 'CANCELLED'],
   RESCUED: ['CLOSED'],
   CANCELLED: ['CLOSED'],
