@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  distDir: '.next-build',
   async headers() {
     return [
       {
@@ -20,10 +21,6 @@ const nextConfig = {
             value: 'nosniff',
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
@@ -38,3 +35,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

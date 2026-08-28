@@ -1,0 +1,6 @@
+{
+  "name": "Nepal SAR",
+  "description": "Mobile-first emergency search and rescue coordination platform for crisis response in Nepal.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
