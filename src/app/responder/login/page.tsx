@@ -34,16 +34,32 @@ export default function ResponderLoginPage() {
       }
 
       // Check if user has an authorized profile in profiles table
-      const { data: profile, error: profileError } = await supabaseBrowser
+      let { data: profile } = await supabaseBrowser
         .from('profiles')
         .select('id, full_name, role')
         .eq('id', data.user.id)
         .maybeSingle();
 
-      if (profileError || !profile) {
+      // If profile is not yet in public.profiles, auto-initialize via verified responder profile route
+      if (!profile) {
+        try {
+          const profileRes = await fetch('/api/responder/profile', {
+            headers: {
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+          });
+          if (profileRes.ok) {
+            profile = await profileRes.json();
+          }
+        } catch {
+          // fallback continues below
+        }
+      }
+
+      if (!profile) {
         // Sign out unauthorized user immediately
         await supabaseBrowser.auth.signOut();
-        throw new Error('Access denied: No authorized Search & Rescue profile found for this user.');
+        throw new Error('Access denied: No authorized Search & Rescue profile found for this account.');
       }
 
       // Save token in localStorage for API requests
@@ -78,20 +94,20 @@ export default function ResponderLoginPage() {
               <div className="inline-flex p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
                 <Shield className="w-8 h-8" />
               </div>
-              <h1 className="text-xl font-extrabold text-slate-900">Responder Operations Portal</h1>
+              <h1 className="text-xl font-extrabold text-slate-900">Authority Control Portal</h1>
               <p className="text-xs text-slate-600">
-                Restricted access for verified Search &amp; Rescue personnel and dispatchers only.
+                Restricted access for authorized Search &amp; Rescue command centers, dispatchers, and field units.
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Official Email</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Official Agency Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="responder@sar-agency.org"
+                  placeholder="commander@agency.gov.np"
                   className="w-full p-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none"
                   required
                 />
@@ -119,49 +135,27 @@ export default function ResponderLoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-red-700 hover:bg-red-800 active:bg-red-900 disabled:bg-slate-300 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors"
+                className="w-full py-3.5 bg-red-700 hover:bg-red-800 active:bg-red-900 disabled:bg-slate-300 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-xs transition-colors cursor-pointer"
               >
                 <Lock className="w-4 h-4" />
-                <span>{isLoading ? 'Authenticating...' : 'Sign In to Operations'}</span>
+                <span>{isLoading ? 'Authenticating Official...' : 'Sign In to Operations'}</span>
               </button>
             </form>
 
-            {/* Official Personnel Credentials */}
-            <div className="pt-4 border-t border-slate-200 space-y-2.5">
-              <span className="text-[11px] font-mono font-bold uppercase text-slate-500 block">
-                Official Agency Personnel Credentials:
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('dispatcher@nepal-sar.org');
-                    setPassword('NepalSar2026!');
-                  }}
-                  className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg text-left text-xs text-slate-800 transition-colors"
-                >
-                  <strong className="block font-bold text-red-700">Dispatcher</strong>
-                  <span className="text-[10px] text-slate-500 font-mono">dispatcher@nepal-sar.org</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('responder@nepal-sar.org');
-                    setPassword('NepalSar2026!');
-                  }}
-                  className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg text-left text-xs text-slate-800 transition-colors"
-                >
-                  <strong className="block font-bold text-blue-700">Field Responder</strong>
-                  <span className="text-[10px] text-slate-500 font-mono">responder@nepal-sar.org</span>
-                </button>
+            {/* Official Access Policy */}
+            <div className="pt-4 border-t border-slate-200 space-y-2">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1.5">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Restricted Authority Clearance</span>
+                </div>
+                <p className="leading-relaxed">
+                  Accounts are provisioned directly by the Central Emergency Operations Center (CEOC) administrator for verified commanders (Nepal Police, Nepal Army, APF, Red Cross).
+                </p>
+                <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
+                  Self-registration is disabled for security. Contact Central SAR Admin to request agency desk credentials.
+                </p>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono text-center">
-                Password: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-bold">NepalSar2026!</code>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-center font-medium">
-              Restricted portal. Responders and dispatchers have real-time access to the national search &amp; rescue queue.
             </div>
           </div>
         </main>

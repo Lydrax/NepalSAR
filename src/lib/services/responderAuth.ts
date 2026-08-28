@@ -58,7 +58,7 @@ export async function validateResponderAuth(
   const user = userData.user;
 
   // 2. Verify Profile and Active Responder Role
-  const { data: profile, error: profileError } = await adminSupabase
+  let { data: profile } = await adminSupabase
     .from('profiles')
     .select('id, full_name, organization, role')
     .eq('id', user.id)
@@ -69,7 +69,40 @@ export async function validateResponderAuth(
       role: ResponderRole;
     }>();
 
-  if (profileError || !profile) {
+  // If user is validly authenticated in Supabase Auth but profile record is not yet created,
+  // auto-initialize profile using user metadata or email defaults
+  if (!profile) {
+    const rawRole = (user.user_metadata?.role as ResponderRole) || 'DISPATCHER';
+    const validRoles: ResponderRole[] = ['ADMIN', 'DISPATCHER', 'RESPONDER'];
+    const cleanRole: ResponderRole = validRoles.includes(rawRole) ? rawRole : 'DISPATCHER';
+    const emailPrefix = user.email ? user.email.split('@')[0] : 'Officer';
+    const defaultName =
+      (user.user_metadata?.full_name as string) ||
+      emailPrefix.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const defaultOrg = (user.user_metadata?.organization as string) || 'National SAR Operations';
+
+    const { data: createdProfile } = await adminSupabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        full_name: defaultName,
+        organization: defaultOrg,
+        role: cleanRole,
+      })
+      .select('id, full_name, organization, role')
+      .maybeSingle<{
+        id: string;
+        full_name: string;
+        organization: string | null;
+        role: ResponderRole;
+      }>();
+
+    if (createdProfile) {
+      profile = createdProfile;
+    }
+  }
+
+  if (!profile) {
     return {
       authorized: false,
       error: 'Access denied: No authorized responder profile associated with this account.',

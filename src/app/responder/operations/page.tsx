@@ -163,17 +163,32 @@ export default function ResponderOperationsPage() {
         .eq('id', session.user.id)
         .maybeSingle();
 
-      if (!profile) {
+      let profileData = profile;
+
+      if (!profileData) {
+        try {
+          const res = await fetch('/api/responder/profile', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            profileData = await res.json();
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!profileData) {
         await supabaseBrowser.auth.signOut();
         router.push('/responder/login');
         return;
       }
 
       setCurrentProfile({
-        id: profile.id,
-        fullName: profile.full_name,
-        role: profile.role as ResponderRole,
-        organization: profile.organization,
+        id: profileData.id,
+        fullName: profileData.full_name,
+        role: profileData.role as ResponderRole,
+        organization: profileData.organization,
       });
     }
 
