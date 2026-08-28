@@ -28,7 +28,7 @@ export default function LandingPage() {
             <div className="space-y-1.5 flex-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-800 border border-red-200">
                 <Radio className="w-3 h-3 text-red-600 animate-pulse" />
-                National Disaster SAR Response
+                National Disaster SAR Response &bull; 24/7 Active
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
                 {t.appName}
@@ -120,7 +120,7 @@ export default function LandingPage() {
       <footer className="border-t border-slate-200 bg-white py-6 px-4 text-xs text-slate-600">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <p className="text-slate-500">
-            Nepal Emergency Search &amp; Rescue Coordination &bull; Disaster Response Portal
+            Nepal Emergency Search &amp; Rescue Coordination &bull; Disaster Response Portal &bull; System Online
           </p>
           <Link
             href="/responder/login"
