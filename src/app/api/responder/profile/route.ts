@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 import { validateResponderAuth } from '@/lib/services/responderAuth';
 
 export async function GET(req: NextRequest) {

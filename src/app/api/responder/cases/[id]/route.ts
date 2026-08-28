@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 import { validateResponderAuth } from '@/lib/services/responderAuth';
 import { getAdminClient } from '@/lib/supabase/admin';
 
