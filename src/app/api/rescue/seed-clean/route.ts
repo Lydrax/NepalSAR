@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
-import { randomUUID } from 'node:crypto';
+
 import { getAdminClient } from '@/lib/supabase/admin';
 import { hashVerificationToken } from '@/lib/services/tokenAuth';
 import { RescueCaseStatus, PriorityLevel, ImmediateDangerSituation, InjuryLevel, DisasterType } from '@/lib/types/emergency';
@@ -177,7 +177,7 @@ export async function POST() {
     const errors: Array<{ caseNumber: string; error: unknown }> = [];
 
     for (const seed of SEED_CASES) {
-      const clientRequestId = randomUUID();
+      const clientRequestId = crypto.randomUUID();
 
       const { data: newReq, error: insertError } = await admin
         .from('rescue_requests')

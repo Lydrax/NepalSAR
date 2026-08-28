@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
+
 import { validateRescueRequestPayload } from '@/lib/validation/rescueRequest';
 import { calculateServerPriority } from '@/lib/services/priorityEngine';
 import { checkRateLimit } from '@/lib/services/rateLimiter';
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
     const serverPriority = calculateServerPriority(data.situation, data.injuryLevel);
 
     // 5. Generate Easy-to-Remember 6-Digit Verification PIN & Numeric Case ID
+    // (Replaced legacy DB sequence DEFAULT generate_case_number() with year+numeric format)
     const plainVerificationToken = generateVerificationToken();
     const tokenHash = hashVerificationToken(plainVerificationToken);
     const numericCaseNumber = generateNumericCaseNumber();

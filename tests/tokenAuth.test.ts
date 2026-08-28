@@ -9,8 +9,8 @@ describe('Cryptographic Verification Token System', () => {
   it('generates a high entropy non-empty token string', () => {
     const token1 = generateVerificationToken();
     const token2 = generateVerificationToken();
-    expect(token1).toMatch(/^nrt_v1_[0-9a-f]{48}$/);
-    expect(token2).toMatch(/^nrt_v1_[0-9a-f]{48}$/);
+    expect(token1).toMatch(/^\d{6}$/);
+    expect(token2).toMatch(/^\d{6}$/);
     expect(token1).not.toBe(token2);
   });
 

@@ -57,10 +57,12 @@ export function validateRescueRequestPayload(
   // 1. Client Request ID (clientRequestId or client_request_id)
   const rawClientId = raw.clientRequestId ?? raw.client_request_id;
   let clientRequestId = '';
-  if (typeof rawClientId === 'string' && UUID_REGEX.test(rawClientId.trim())) {
-    clientRequestId = rawClientId.trim().toLowerCase();
-  } else if (typeof rawClientId === 'string' && rawClientId.trim().length >= 8 && rawClientId.trim().length <= 64) {
-    clientRequestId = rawClientId.trim();
+  if (rawClientId !== undefined && rawClientId !== null) {
+    if (typeof rawClientId === 'string' && UUID_REGEX.test(rawClientId.trim())) {
+      clientRequestId = rawClientId.trim().toLowerCase();
+    } else {
+      errors.push('clientRequestId must be a valid UUIDv4.');
+    }
   } else {
     // Generate UUID server-side if client didn't supply a valid one
     clientRequestId =
