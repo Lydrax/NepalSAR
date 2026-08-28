@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 import { hashVerificationToken } from '@/lib/services/tokenAuth';
 import { checkRateLimit } from '@/lib/services/rateLimiter';
 import { getAdminClient } from '@/lib/supabase/admin';

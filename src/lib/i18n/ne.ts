@@ -10,7 +10,7 @@ export const ne: TranslationKey = {
   actions: {
     requestRescue: '🆘 उद्धार अनुरोध गर्नुहोस्',
     checkExisting: 'पहिलेको अनुरोध हेर्नुहोस्',
-    useMyLocation: 'मेरो हालको स्थान पत्ता लगाउनुहोस्',
+    useMyLocation: 'मेरो हालको स्थान पत्ता लगाउनुहोस् (स्वतः जीपीएस)',
     selectOnMap: 'नक्सामा स्थान छान्नुहोस्',
     enterDescription: 'स्थानको विवरण लेख्नुहोस्',
     next: 'अर्को चरण',
@@ -19,11 +19,15 @@ export const ne: TranslationKey = {
     submitting: 'अनुरोध पठाइँदैछ...',
     backToHome: 'गृहपृष्ठमा फर्कनुहोस्',
     retry: 'पुनः प्रयास गर्नुहोस्',
+    retryGps: 'जीपीएस पुनः खोज्नुहोस्',
+    cancelLocating: 'रद्द गरी नक्सामा छान्नुहोस्',
   },
 
   steps: {
     step1Title: '१. स्थान',
     step1Prompt: 'उद्धारकर्ताहरूलाई तपाईंको स्थान फेला पार्न मद्दत चाहिन्छ।',
+    locationGuideTitle: 'स्थान अनुमति निर्देशिका',
+    locationGuidePrompt: 'ब्राउजरले स्थान अनुमति माग्दा कृपया "Allow" (अनुमति दिनुहोस्) मा थिच्नुहोस्।',
     step2Title: '२. मानिसहरूको संख्या',
     step2Prompt: 'कति जनालाई मद्दत आवश्यक छ?',
     step3Title: '३. तत्कालको अवस्था',

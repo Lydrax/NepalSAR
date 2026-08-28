@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { PriorityLevel, RescueCaseStatus } from '@/lib/types/emergency';
-import { Focus, Maximize2 } from 'lucide-react';
+import { Focus, Maximize2, Map as MapIcon, Satellite, Mountain } from 'lucide-react';
+
+export type MapTileMode = 'STREET' | 'SATELLITE' | 'TERRAIN';
 
 export interface MapCaseItem {
   id: string;
@@ -29,9 +31,61 @@ export default function ResponderMap({
   selectedCaseId,
   onSelectCase,
 }: ResponderMapProps) {
+  const [mapLayer, setMapLayer] = useState<MapTileMode>('SATELLITE');
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const tileLayersRef = useRef<L.Layer[]>([]);
+  const prevSelectedCaseIdRef = useRef<string | null | undefined>(undefined);
+  const hasInitialFitRef = useRef<boolean>(false);
+
+  // Helper to switch base tile layers smoothly with deep zoom support
+  const applyTileLayer = (mode: MapTileMode, map: L.Map) => {
+    tileLayersRef.current.forEach((layer) => {
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+    });
+    tileLayersRef.current = [];
+
+    if (mode === 'SATELLITE') {
+      // High-resolution Google Hybrid Satellite (imagery + roads + building names) with deep zoom up to 22
+      // maxNativeZoom: 20 prevents "Map data not available" by smoothly upscaling zoom-20 tiles when zooming deeper into houses
+      const googleHybrid = L.tileLayer(
+        'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        {
+          subdomains: ['0', '1', '2', '3'],
+          maxZoom: 22,
+          maxNativeZoom: 20,
+          attribution: '&copy; Google Satellite & Imagery',
+        }
+      );
+      googleHybrid.addTo(map);
+      tileLayersRef.current = [googleHybrid];
+    } else if (mode === 'TERRAIN') {
+      // High-resolution elevation relief and mountain contours
+      const topo = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 22,
+          maxNativeZoom: 18,
+          attribution: 'Tiles &copy; Esri &mdash; Topographic Relief',
+        }
+      );
+      topo.addTo(map);
+      tileLayersRef.current = [topo];
+    } else {
+      // Standard OpenStreetMap street view with smooth upscale support
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22,
+        maxNativeZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+      });
+      osm.addTo(map);
+      tileLayersRef.current = [osm];
+    }
+  };
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -41,39 +95,64 @@ export default function ResponderMap({
     const map = L.map(mapContainerRef.current, {
       center: [28.2096, 84.5],
       zoom: 7,
+      maxZoom: 22,
       zoomControl: true,
       attributionControl: true,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    applyTileLayer(mapLayer, map);
 
     mapInstanceRef.current = map;
 
     // ResizeObserver ensures Leaflet updates tile dimensions whenever container resizes or un-hides
-    const resizeObserver = new ResizeObserver(() => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
+    let rafId: number | null = null;
+    let lastWidth = 0;
+    let lastHeight = 0;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (Math.abs(width - lastWidth) > 1 || Math.abs(height - lastHeight) > 1) {
+          lastWidth = width;
+          lastHeight = height;
+          if (rafId) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+            }
+          });
+        }
       }
     });
 
     resizeObserver.observe(mapContainerRef.current);
 
     // Initial size invalidations to ensure clean rendering after flex layout settling
-    const t1 = setTimeout(() => map.invalidateSize(), 150);
-    const t2 = setTimeout(() => map.invalidateSize(), 500);
+    const t1 = setTimeout(() => {
+      if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+    }, 150);
+    const t2 = setTimeout(() => {
+      if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+    }, 500);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      if (rafId) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
+      tileLayersRef.current = [];
       map.remove();
       mapInstanceRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // React to mapLayer state changes and swap tiles seamlessly
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    applyTileLayer(mapLayer, map);
+  }, [mapLayer]);
 
   // Update Markers and Map View
   useEffect(() => {
@@ -83,7 +162,7 @@ export default function ResponderMap({
     // Invalidate map size in case layout or tab changed
     map.invalidateSize();
 
-    // Clear existing markers
+    // Clear and re-populate markers
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
 
@@ -162,23 +241,36 @@ export default function ResponderMap({
       markersRef.current.set(c.id, marker);
     });
 
-    // If a case is selected, pan and zoom to it
-    if (selectedCaseId) {
+    const isCaseSelectionChanged = prevSelectedCaseIdRef.current !== selectedCaseId;
+    prevSelectedCaseIdRef.current = selectedCaseId;
+
+    // 1. If user switched selected case, smoothly pan to it without forcing zoom out
+    if (isCaseSelectionChanged && selectedCaseId) {
       const selected = cases.find((c) => c.id === selectedCaseId);
       if (selected && selected.latitude !== null && selected.longitude !== null) {
-        map.setView([selected.latitude, selected.longitude], 13, { animate: true });
+        const currentZoom = map.getZoom();
+        const targetZoom = Math.max(currentZoom, 15);
+        map.setView([selected.latitude, selected.longitude], targetZoom, { animate: true });
         const m = markersRef.current.get(selectedCaseId);
         if (m) {
           m.openPopup();
         }
       }
-    } else if (validCoordinates.length > 0) {
+    } else if (selectedCaseId) {
+      // Keep popup open for active case if already open, but DO NOT modify map zoom/pan on polling
+      const m = markersRef.current.get(selectedCaseId);
+      if (m && !m.isPopupOpen()) {
+        m.openPopup();
+      }
+    } else if (!hasInitialFitRef.current && validCoordinates.length > 0) {
+      // 2. Only fit bounds ONCE on initial load to avoid auto-zooming out when background polling updates
       const bounds = L.latLngBounds(validCoordinates);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+      hasInitialFitRef.current = true;
     }
   }, [cases, selectedCaseId, onSelectCase]);
 
-  // Recenter helper to fit all cases
+  // Recenter helper to fit all cases (explicit user click)
   const handleFitAll = () => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -201,7 +293,9 @@ export default function ResponderMap({
     map.invalidateSize();
     const selected = cases.find((c) => c.id === selectedCaseId);
     if (selected && selected.latitude !== null && selected.longitude !== null) {
-      map.setView([selected.latitude, selected.longitude], 13, { animate: true });
+      const currentZoom = map.getZoom();
+      const targetZoom = Math.max(currentZoom, 16);
+      map.setView([selected.latitude, selected.longitude], targetZoom, { animate: true });
       const m = markersRef.current.get(selectedCaseId);
       if (m) {
         m.openPopup();
@@ -213,12 +307,12 @@ export default function ResponderMap({
     <div className="relative w-full h-full min-h-[350px] bg-slate-100 rounded-xl overflow-hidden border border-slate-300 shadow-xs flex flex-col">
       <div ref={mapContainerRef} className="w-full h-full z-0 min-h-[350px] flex-1" />
 
-      {/* Map Control Shortcuts */}
+      {/* Map Control Shortcuts & Layer Toggles */}
       <div className="absolute top-2 left-14 z-[400] flex items-center gap-1.5 bg-white/95 backdrop-blur-xs p-1 rounded-lg border border-slate-300 shadow-xs">
         <button
           type="button"
           onClick={handleFitAll}
-          className="p-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
+          className="p-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
           title="Fit all cases on map"
         >
           <Maximize2 className="w-3.5 h-3.5" />
@@ -228,13 +322,56 @@ export default function ResponderMap({
           <button
             type="button"
             onClick={handleCenterSelected}
-            className="p-1.5 text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded text-xs font-semibold flex items-center gap-1 transition-colors border-l border-slate-200"
+            className="p-1.5 text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded text-xs font-semibold flex items-center gap-1 transition-colors border-l border-slate-200 cursor-pointer"
             title="Center on selected incident"
           >
             <Focus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline text-[11px]">Selected</span>
           </button>
         )}
+
+        {/* Map Layer Mode Toggle */}
+        <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1">
+          <button
+            type="button"
+            onClick={() => setMapLayer('SATELLITE')}
+            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+              mapLayer === 'SATELLITE'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+            title="High-Resolution Satellite & House-Level Zoom"
+          >
+            <Satellite className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Satellite</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapLayer('STREET')}
+            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+              mapLayer === 'STREET'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+            title="Standard Street Map"
+          >
+            <MapIcon className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Street</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapLayer('TERRAIN')}
+            className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+              mapLayer === 'TERRAIN'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+            title="Topographic Elevation & Mountain Contours"
+          >
+            <Mountain className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Terrain</span>
+          </button>
+        </div>
       </div>
 
       {/* Priority Legend Badge */}

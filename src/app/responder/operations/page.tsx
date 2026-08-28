@@ -126,6 +126,7 @@ export default function ResponderOperationsPage() {
 
   // Loading & Action states
   const [isLoadingQueue, setIsLoadingQueue] = useState<boolean>(true);
+  const [queueSyncError, setQueueSyncError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
@@ -143,40 +144,58 @@ export default function ResponderOperationsPage() {
   const [showCloseModal, setShowCloseModal] = useState<boolean>(false);
   const [closeNotes, setCloseNotes] = useState<string>('');
 
-  // 1. Initial Authentication & Profile Retrieval
+  // 1. Initial Authentication & Profile Retrieval with reactive session listener
   useEffect(() => {
+    let isMounted = true;
+
     async function checkAuth() {
+      // 1. Check current Supabase session
       const {
         data: { session },
       } = await supabaseBrowser.auth.getSession();
 
-      if (!session) {
+      if (!isMounted) return;
+
+      const activeToken =
+        session?.access_token ||
+        (typeof window !== 'undefined' ? localStorage.getItem('nepal_sar_auth_token') : null);
+
+      if (!session && !activeToken) {
         router.push('/responder/login');
         return;
       }
 
-      setAuthToken(session.access_token);
+      if (activeToken) {
+        setAuthToken(activeToken);
+      }
+
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
 
       const { data: profile } = await supabaseBrowser
         .from('profiles')
         .select('id, full_name, role, organization')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .maybeSingle();
 
       let profileData = profile;
 
-      if (!profileData) {
+      if (!profileData && activeToken) {
         try {
           const res = await fetch('/api/responder/profile', {
-            headers: { Authorization: `Bearer ${session.access_token}` },
+            headers: { Authorization: `Bearer ${activeToken}` },
           });
           if (res.ok) {
             profileData = await res.json();
           }
         } catch {
-          // ignore
+          // fallback continues
         }
       }
+
+      if (!isMounted) return;
 
       if (!profileData) {
         await supabaseBrowser.auth.signOut();
@@ -193,46 +212,119 @@ export default function ResponderOperationsPage() {
     }
 
     checkAuth();
+
+    // Subscribe to auth state updates (e.g. automatic token refresh)
+    const { data: authListener } = supabaseBrowser.auth.onAuthStateChange(async (event, newSession) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT' || (!newSession && event === 'USER_UPDATED')) {
+        setAuthToken(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('nepal_sar_auth_token');
+          localStorage.removeItem('nepal_sar_user_role');
+        }
+        router.push('/responder/login');
+      } else if (newSession?.access_token) {
+        setAuthToken(newSession.access_token);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('nepal_sar_auth_token', newSession.access_token);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
   }, [router]);
 
-  // 2. Fetch Queue / Directory Cases
+  // 2. Fetch Queue / Directory Cases with auto-retry and token refresh recovery
   const fetchQueue = useCallback(
     async (isSilent = false) => {
-      if (!authToken) return;
+      const token =
+        authToken ||
+        (typeof window !== 'undefined' ? localStorage.getItem('nepal_sar_auth_token') : null);
+
+      if (!token) return;
       if (!isSilent) setIsLoadingQueue(true);
 
-      try {
-        const queryParams = new URLSearchParams();
+      const queryParams = new URLSearchParams();
 
-        if (activeSection === 'OPERATIONS') {
-          if (priorityFilter !== 'ALL') queryParams.set('priority', priorityFilter);
-          if (statusFilter !== 'ALL') queryParams.set('status', statusFilter);
-        } else {
-          queryParams.set('status', closedStatusFilter);
-          if (directorySearch.trim()) {
-            queryParams.set('search', directorySearch.trim());
+      if (activeSection === 'OPERATIONS') {
+        if (priorityFilter !== 'ALL') queryParams.set('priority', priorityFilter);
+        if (statusFilter !== 'ALL') queryParams.set('status', statusFilter);
+      } else {
+        queryParams.set('status', closedStatusFilter);
+        if (directorySearch.trim()) {
+          queryParams.set('search', directorySearch.trim());
+        }
+      }
+
+      const url = `/api/responder/cases?${queryParams.toString()}`;
+
+      const executeFetch = async (bearerToken: string, attempt = 1): Promise<boolean> => {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const res = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${bearerToken}`,
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (res.status === 401) {
+            // Attempt automatic token refresh
+            const { data: refreshData } = await supabaseBrowser.auth.refreshSession();
+            if (refreshData.session?.access_token) {
+              const freshToken = refreshData.session.access_token;
+              setAuthToken(freshToken);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('nepal_sar_auth_token', freshToken);
+              }
+              if (attempt < 2) {
+                return await executeFetch(freshToken, attempt + 1);
+              }
+            }
+            router.push('/responder/login');
+            return false;
           }
-        }
 
-        const res = await fetch(`/api/responder/cases?${queryParams.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        });
+          if (res.status === 403) {
+            router.push('/responder/login');
+            return false;
+          }
 
-        if (res.status === 401 || res.status === 403) {
-          router.push('/responder/login');
-          return;
-        }
+          if (!res.ok) {
+            setQueueSyncError(`Server response code: ${res.status}`);
+            return false;
+          }
 
-        const data = await res.json();
-        if (data.success && Array.isArray(data.cases)) {
-          setCases(data.cases);
-          if (typeof data.activeCount === 'number') setActiveCount(data.activeCount);
-          if (typeof data.closedCount === 'number') setClosedCount(data.closedCount);
+          const data = await res.json();
+          if (data.success && Array.isArray(data.cases)) {
+            setCases(data.cases);
+            if (typeof data.activeCount === 'number') setActiveCount(data.activeCount);
+            if (typeof data.closedCount === 'number') setClosedCount(data.closedCount);
+            setQueueSyncError(null);
+            return true;
+          }
+          return false;
+        } catch (err: unknown) {
+          // If transient network interruption, retry once after a short delay
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 1200));
+            return await executeFetch(bearerToken, attempt + 1);
+          }
+          // Do not log raw console.error to avoid unhandled alarm triggers
+          console.warn('Notice: Responder queue temporarily unable to sync (will auto-reconnect):', err);
+          setQueueSyncError('Connecting to live dispatch queue...');
+          return false;
         }
-      } catch (err) {
-        console.error('Failed to fetch case queue:', err);
+      };
+
+      try {
+        await executeFetch(token);
       } finally {
         setIsLoadingQueue(false);
       }
@@ -243,25 +335,38 @@ export default function ResponderOperationsPage() {
   // 3. Fetch Single Case Detail
   const fetchCaseDetail = useCallback(
     async (caseId: string) => {
-      if (!authToken) return;
+      const token =
+        authToken ||
+        (typeof window !== 'undefined' ? localStorage.getItem('nepal_sar_auth_token') : null);
+
+      if (!token) return;
       setActionError(null);
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
         const res = await fetch(`/api/responder/cases/${caseId}`, {
           headers: {
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${token}`,
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
-        const data = await res.json();
-        if (data.success && data.case) {
-          setSelectedCaseDetail(data.case);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.case) {
+            setSelectedCaseDetail(data.case);
+          } else {
+            setActionError(data.error || 'Unable to load case details.');
+          }
         } else {
-          setActionError(data.error || 'Unable to load case details.');
+          setActionError('Unable to retrieve case record from server.');
         }
       } catch (err) {
-        console.error('Failed to fetch case detail:', err);
-        setActionError('Failed to communicate with server.');
+        console.warn('Notice: Case detail fetch temporary issue:', err);
+        setActionError('Network interruption while loading case details.');
       }
     },
     [authToken]
@@ -697,6 +802,22 @@ export default function ResponderOperationsPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Connection / Sync Notification Banner */}
+              {queueSyncError && (
+                <div className="bg-amber-50 border-b border-amber-200 px-3 py-2 text-xs text-amber-900 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>{queueSyncError}</span>
+                  </div>
+                  <button
+                    onClick={() => fetchQueue(false)}
+                    className="text-amber-950 font-bold underline hover:text-amber-800 text-[11px] cursor-pointer"
+                  >
+                    Retry Now
+                  </button>
+                </div>
+              )}
 
               {/* Queue List */}
               <div className="flex-1 overflow-y-auto divide-y divide-slate-200">

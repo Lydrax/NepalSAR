@@ -8,7 +8,7 @@ export const en = {
   actions: {
     requestRescue: 'REQUEST RESCUE',
     checkExisting: 'CHECK EXISTING REQUEST',
-    useMyLocation: 'USE MY CURRENT LOCATION',
+    useMyLocation: 'USE MY CURRENT LOCATION (AUTO-GPS)',
     selectOnMap: 'SELECT LOCATION ON MAP',
     enterDescription: 'ENTER LOCATION DESCRIPTION',
     next: 'Next',
@@ -17,11 +17,15 @@ export const en = {
     submitting: 'Submitting Request...',
     backToHome: 'Back to Home',
     retry: 'Retry Submission',
+    retryGps: 'Retry GPS Lock',
+    cancelLocating: 'Cancel & Pick on Map',
   },
 
   steps: {
     step1Title: '1. Location',
     step1Prompt: 'We need your location to help responders find you.',
+    locationGuideTitle: 'Location Permission Guide',
+    locationGuidePrompt: 'Please tap "Allow" when your browser asks for location access.',
     step2Title: '2. People',
     step2Prompt: 'How many people need help?',
     step3Title: '3. Immediate Danger',

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 import { validateRescueRequestPayload } from '@/lib/validation/rescueRequest';
 import { calculateServerPriority } from '@/lib/services/priorityEngine';
 import { checkRateLimit } from '@/lib/services/rateLimiter';

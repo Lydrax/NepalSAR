@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { GlobalErrorHandler } from '@/components/common/GlobalErrorHandler';
 
 export const metadata: Metadata = {
   title: 'NEPAL RESCUE | Emergency SAR Coordination',
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-red-700 selection:text-white">
+        <GlobalErrorHandler />
         {children}
       </body>
     </html>
