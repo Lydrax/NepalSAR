@@ -21,7 +21,13 @@ import {
   RefreshCw,
   Compass,
   RotateCcw,
+  BookOpen,
+  Smartphone,
+  ShieldCheck,
+  X,
+  Download,
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { getTranslations, Language } from '@/lib/i18n';
 import {
   LocationData,
@@ -74,8 +80,8 @@ export default function RequestRescuePage() {
   });
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locatingStatusText, setLocatingStatusText] = useState<string | null>(null);
-  const [locatingAttempt, setLocatingAttempt] = useState<number>(1);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showGpsInstructions, setShowGpsInstructions] = useState<boolean>(true);
   const isLocatingCancelledRef = useRef<boolean>(false);
 
   const [peopleCount, setPeopleCount] = useState<number>(1);
@@ -101,6 +107,31 @@ export default function RequestRescuePage() {
   } | null>(null);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
   const [copiedCase, setCopiedCase] = useState<boolean>(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState<boolean>(false);
+  const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const confirmationCardRef = useRef<HTMLDivElement | null>(null);
+
+  const handleDownloadImage = async () => {
+    if (!confirmationCardRef.current || !submissionResult) return;
+    try {
+      setIsDownloadingImage(true);
+      const dataUrl = await toPng(confirmationCardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+      const link = document.createElement('a');
+      link.download = `Nepal_Rescue_Case_${submissionResult.caseNumber}.png`;
+      link.href = dataUrl;
+      link.click();
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3500);
+    } catch (err) {
+      console.error('Failed to download image', err);
+    } finally {
+      setIsDownloadingImage(false);
+    }
+  };
 
   // Initialize and persist clientRequestId across retries
   useEffect(() => {
@@ -130,7 +161,7 @@ export default function RequestRescuePage() {
     setLocatingStatusText(null);
   }, []);
 
-  // Multi-tier GPS Acquisition Handler (High accuracy satellite -> fast network/cell -> tolerant final sweep)
+  // Standard Direct GPS Acquisition Handler with Guaranteed 1.5-Second Animation
   const handleAcquireLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError(
@@ -144,111 +175,77 @@ export default function RequestRescuePage() {
     isLocatingCancelledRef.current = false;
     setIsLocating(true);
     setLocationError(null);
-    setLocatingAttempt(1);
-    const startTime = Date.now();
+    setLocatingStatusText(
+      lang === 'ne'
+        ? 'जीपीएस स्थान खोजी भइरहेको छ... कृपया अनुमति दिनुहोस्।'
+        : 'Acquiring GPS coordinates... Please grant permission if prompted.'
+    );
 
-    const finishWithMinimumDelay = (callback: () => void) => {
+    const startTime = Date.now();
+    const completeWithAnimation = (action: () => void) => {
       const elapsed = Date.now() - startTime;
-      const minDuration = 1000; // Guarantee at least 1-second animation feedback
+      const minDuration = 1500; // Guaranteed 1.5s smooth animation feedback
       if (elapsed < minDuration) {
         setTimeout(() => {
           if (!isLocatingCancelledRef.current) {
-            callback();
+            action();
           }
         }, minDuration - elapsed);
       } else {
-        callback();
+        action();
       }
     };
 
-    const attempts = [
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 10000,
-        textEn: 'Attempt 1 of 3: Requesting location permission & locking high-accuracy GPS signal...',
-        textNe: 'चरण १/३: स्थान अनुमति माग्दै र उच्च-सटीक जीपीएस खोजी गर्दै...',
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 25000,
-        maximumAge: 60000,
-        textEn: 'Attempt 2 of 3: Satellite fix is taking time; fast-locking cellular & network coordinates...',
-        textNe: 'चरण २/३: मोबाइल नेटवर्क तथा इन्टरनेटबाट द्रुत स्थान खोज्दै...',
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 25000,
-        maximumAge: 120000,
-        textEn: 'Attempt 3 of 3: Performing final location sweep...',
-        textNe: 'चरण ३/३: अन्तिम स्थान खोजी भइरहेको छ...',
-      },
-    ];
-
-    const runAttempt = (index: number) => {
-      if (isLocatingCancelledRef.current) return;
-      if (index >= attempts.length) {
-        finishWithMinimumDelay(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (isLocatingCancelledRef.current) return;
+        completeWithAnimation(() => {
+          setLocation((prev) => ({
+            ...prev,
+            latitude: Number(pos.coords.latitude.toFixed(6)),
+            longitude: Number(pos.coords.longitude.toFixed(6)),
+            accuracy: Math.round(pos.coords.accuracy),
+            timestamp: new Date(pos.timestamp).toISOString(),
+            source: 'GPS',
+          }));
           setIsLocating(false);
           setLocatingStatusText(null);
-          setLocationError(
-            lang === 'ne'
-              ? '३ पटक खोजी गर्दा पनि जीपीएस संकेत प्राप्त भएन। कृपया तलको नक्सामा थिचेर आफ्नो स्थान छान्नुहोस् वा विवरण लेख्नुहोस्।'
-              : 'GPS signal could not be locked after 3 attempts. Please tap your location directly on the satellite map below or type your location description.'
-          );
+          setLocationError(null);
         });
-        return;
-      }
+      },
+      (err) => {
+        if (isLocatingCancelledRef.current) return;
+        completeWithAnimation(() => {
+          setIsLocating(false);
+          setLocatingStatusText(null);
 
-      setLocatingAttempt(index + 1);
-      setLocatingStatusText(lang === 'ne' ? attempts[index].textNe : attempts[index].textEn);
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (isLocatingCancelledRef.current) return;
-          finishWithMinimumDelay(() => {
-            setLocation((prev) => ({
-              ...prev,
-              latitude: Number(pos.coords.latitude.toFixed(6)),
-              longitude: Number(pos.coords.longitude.toFixed(6)),
-              accuracy: Math.round(pos.coords.accuracy),
-              timestamp: new Date(pos.timestamp).toISOString(),
-              source: 'GPS',
-            }));
-            setIsLocating(false);
-            setLocatingStatusText(null);
-            setLocationError(null);
-          });
-        },
-        (err) => {
-          if (isLocatingCancelledRef.current) return;
-
-          // If explicitly denied, stop immediately and explain how to unblock
           if (err.code === err.PERMISSION_DENIED) {
-            finishWithMinimumDelay(() => {
-              setIsLocating(false);
-              setLocatingStatusText(null);
-              setLocationError(
-                lang === 'ne'
-                  ? 'स्थान अनुमति अस्वीकार गरिएको छ। ब्राउजरको URL बारमा रहेको सेटिङ चिन्ह थिचेर स्थान अनुमति अन गर्नुहोस्, वा तलको नक्सामा सीधै आफ्नो स्थान छान्नुहोस्।'
-                  : 'Location permission was denied or dismissed. To fix: allow location access in your browser settings, or simply tap your location directly on the satellite map below.'
-              );
-            });
-            return;
+            setLocationError(
+              lang === 'ne'
+                ? 'स्थान अनुमति अस्वीकार गरिएको छ। कृपया ब्राउजरमा स्थान अनुमति दिनुहोस्, वा तलको नक्सामा सीधै आफ्नो स्थान छान्नुहोस्।'
+                : 'Location permission was denied. Please enable location permissions in your browser or select your location directly on the map below.'
+            );
+          } else if (err.code === err.TIMEOUT) {
+            setLocationError(
+              lang === 'ne'
+                ? 'जीपीएस संकेत फेला पार्न समय लाग्यो। कृपया पुनः प्रयास गर्नुहोस् वा तलको नक्सामा स्थान छान्नुहोस्।'
+                : 'GPS signal request timed out. Please retry or pick your location directly on the map below.'
+            );
+          } else {
+            setLocationError(
+              lang === 'ne'
+                ? 'जीपीएस स्थान प्राप्त हुन सकेन। कृपया तलको नक्सामा थिचेर स्थान छान्नुहोस्।'
+                : 'Unable to acquire GPS coordinates. Please select your location directly on the map below.'
+            );
           }
-
-          // Otherwise (TIMEOUT or POSITION_UNAVAILABLE), progress automatically to next attempt
-          runAttempt(index + 1);
-        },
-        {
-          enableHighAccuracy: attempts[index].enableHighAccuracy,
-          timeout: attempts[index].timeout,
-          maximumAge: attempts[index].maximumAge,
-        }
-      );
-    };
-
-    runAttempt(0);
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000,
+      }
+    );
   }, [lang]);
 
   const handleMapLocationSelect = useCallback(
@@ -397,68 +394,167 @@ export default function RequestRescuePage() {
           {/* STEP 1: LOCATION */}
           {currentStep === 1 && (
             <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-7 shadow-xs space-y-6">
-              <div className="space-y-1.5 border-b border-slate-100 pb-4">
-                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
-                  <MapPin className="w-6 h-6 text-red-700 shrink-0" />
-                  {t.steps.step1Title}
-                </h2>
-                <p className="text-slate-600 text-sm">{t.steps.step1Prompt}</p>
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 text-slate-900">
+                    <MapPin className="w-6 h-6 text-red-700 shrink-0" />
+                    {t.steps.step1Title}
+                  </h2>
+                  <p className="text-slate-600 text-sm">{t.steps.step1Prompt}</p>
+                </div>
+                {!showGpsInstructions && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGpsInstructions(true)}
+                    className="shrink-0 text-xs font-bold text-red-700 hover:text-red-900 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    title={t.gpsGuide.viewInstructionsBtn}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>{t.gpsGuide.viewInstructionsBtn}</span>
+                  </button>
+                )}
               </div>
 
-              {/* Location Guidance Banner */}
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-3.5 space-y-1.5 text-xs text-sky-950">
-                <div className="flex items-center gap-2 font-bold text-sky-900 text-sm">
-                  <Compass className="w-4 h-4 text-sky-700 shrink-0" />
-                  <span>{t.steps.locationGuideTitle}</span>
+              {/* Red-Themed GPS Instructions Card */}
+              {showGpsInstructions && (
+                <div className="bg-gradient-to-br from-rose-50/90 via-red-50/40 to-slate-50 border-2 border-red-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="flex items-start justify-between gap-3 border-b border-red-200/70 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-red-700 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                          {t.gpsGuide.title}
+                        </h3>
+                        <p className="text-xs text-red-900/80 font-medium mt-0.5">
+                          {t.gpsGuide.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowGpsInstructions(false)}
+                      className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-red-100/80 transition-colors cursor-pointer"
+                      title={t.gpsGuide.hideInstructionsBtn}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Step 1 */}
+                    <div className="bg-white p-3 rounded-xl border border-red-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
+                        <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <Smartphone className="w-3.5 h-3.5 text-red-700" />
+                          {t.gpsGuide.step1Title}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-7 leading-relaxed">
+                        {t.gpsGuide.step1Desc}
+                      </p>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="bg-white p-3 rounded-xl border border-red-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
+                        <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <Navigation className="w-3.5 h-3.5 text-red-600" />
+                          {t.gpsGuide.step2Title}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-7 leading-relaxed">
+                        {t.gpsGuide.step2Desc}
+                      </p>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="bg-white p-3 rounded-xl border border-red-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0">3</span>
+                        <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          {t.gpsGuide.step3Title}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-7 leading-relaxed">
+                        {t.gpsGuide.step3Desc}
+                      </p>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="bg-white p-3 rounded-xl border border-red-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-700 text-white text-[11px] font-bold flex items-center justify-center shrink-0">4</span>
+                        <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <Compass className="w-3.5 h-3.5 text-amber-600" />
+                          {t.gpsGuide.step4Title}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-7 leading-relaxed">
+                        {t.gpsGuide.step4Desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-red-200/60">
+                    <span className="text-[11px] text-red-950 font-medium">
+                      💡 {lang === 'ne' ? 'निर्देशन जुनसुकै बेला फेरि हेर्न सकिन्छ' : 'You can refer back to these steps at any time'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowGpsInstructions(false)}
+                      className="px-4 py-2 bg-red-700 hover:bg-red-800 active:bg-red-900 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{t.gpsGuide.understoodBtn}</span>
+                    </button>
+                  </div>
                 </div>
-                <p className="text-slate-700 leading-relaxed">
-                  {t.steps.locationGuidePrompt}
-                </p>
-              </div>
+              )}
 
               {/* Active Locating Status or Primary GPS Trigger Button */}
               {isLocating ? (
-                <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3.5 shadow-md border border-slate-800 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 shadow-md border border-slate-800 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2.5">
                     <div className="flex items-center gap-2.5 font-bold text-sm text-red-400">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </span>
                       <Navigation className="w-5 h-5 text-red-500 animate-spin shrink-0" />
-                      <span>Acquiring Coordinates</span>
+                      <span>{lang === 'ne' ? 'स्थान खोजी भइरहेको छ...' : 'Locking GPS Coordinates...'}</span>
                     </div>
-                    <span className="text-[11px] font-mono font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
-                      Attempt {locatingAttempt} of 3
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-slate-100 flex items-center gap-2">
-                      <Navigation className="w-3.5 h-3.5 text-red-400 animate-spin shrink-0" />
-                      <span>{locatingStatusText || 'Searching for GPS signal...'}</span>
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      Please check your screen for a browser prompt asking to allow location access.
-                    </p>
-                  </div>
-
-                  {/* Progress indicator bar */}
-                  <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-red-500 h-1.5 transition-all duration-500 ease-out"
-                      style={{ width: `${(locatingAttempt / 3) * 100}%` }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end pt-1">
                     <button
                       type="button"
                       onClick={handleCancelLocating}
-                      className="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 border border-slate-700 transition-colors cursor-pointer"
                     >
                       {t.actions.cancelLocating}
                     </button>
                   </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-slate-100 flex items-center gap-2">
+                      <span>{locatingStatusText || (lang === 'ne' ? 'जीपीएस संकेत खोज्दै...' : 'Searching for device GPS signal...')}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {lang === 'ne'
+                        ? 'कृपया आफ्नो स्क्रिनमा स्थान अनुमति दिने पप-अप आएको छ कि हेर्नुहोस्।'
+                        : 'Please check your screen for a browser prompt asking to allow location access.'}
+                    </p>
+                  </div>
+
+                  {/* Animated pulse progress bar */}
+                  <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-red-500 h-1.5 w-full animate-pulse" />
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <button
                     type="button"
                     onClick={handleAcquireLocation}
@@ -468,7 +564,9 @@ export default function RequestRescuePage() {
                     <span>{t.actions.useMyLocation}</span>
                   </button>
                   <p className="text-[11px] text-slate-500 text-center">
-                    Automatic 3-stage sweep (Satellite GPS, Cellular, &amp; Network triangulation)
+                    {lang === 'ne'
+                      ? 'तपाईंको यन्त्रको जीपीएसबाट स्वतः सटीक अक्षांश र देशान्तर लिइनेछ'
+                      : 'Automatically locks accurate latitude & longitude from your device'}
                   </p>
                 </div>
               )}
@@ -880,7 +978,15 @@ export default function RequestRescuePage() {
               </div>
 
               {/* Numeric Credentials Box (No confusing hyphens or symbols) */}
-              <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4">
+              <div ref={confirmationCardRef} className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+                    <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">Nepal Rescue Tracking Pass</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500">Official Coordination Token</span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* Case ID Number */}
                   <div className="bg-white border border-slate-200 p-4 rounded-xl text-center space-y-1.5 shadow-xs">
@@ -942,6 +1048,33 @@ export default function RequestRescuePage() {
                     isCompact={false}
                   />
                 </div>
+
+                <div className="pt-2 text-[10px] text-slate-400 text-center font-mono border-t border-slate-200/60">
+                  Nepal Rescue • National Emergency Coordination Network
+                </div>
+              </div>
+
+              {/* Download Details as Image Button */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  disabled={isDownloadingImage}
+                  className="w-full py-3 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-800 font-bold rounded-xl border border-red-200 flex items-center justify-center gap-2 text-sm transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Download className={`w-4 h-4 ${isDownloadingImage ? 'animate-bounce' : ''}`} />
+                  <span>
+                    {isDownloadingImage
+                      ? t.tracking.downloadingImage
+                      : t.tracking.downloadImage}
+                  </span>
+                </button>
+                {downloadSuccess && (
+                  <p className="text-center text-xs text-emerald-700 font-medium animate-in fade-in flex items-center justify-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{t.tracking.downloadSuccess}</span>
+                  </p>
+                )}
               </div>
 
 

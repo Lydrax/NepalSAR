@@ -1,8 +1,11 @@
 export const en = {
   appName: 'NEPAL RESCUE',
   appTagline: 'Emergency Rescue Coordination Platform',
+  disclaimerTitle: 'Prototype Emergency Coordination Service',
+  disclaimerLine1: 'NepalSAR is an independent prototype and is not an official emergency service or government agency.',
+  disclaimerLine2: 'Submitting a rescue request does not guarantee a response or rescue. In an emergency, please contact the appropriate official emergency services directly whenever possible.',
   disclaimer:
-    'Prototype emergency coordination service. Not an official emergency service. Submitting a request does not guarantee rescue. If possible, contact official emergency services directly.',
+    'Prototype Emergency Coordination Service: NepalSAR is an independent prototype and is not an official emergency service or government agency. Submitting a rescue request does not guarantee a response or rescue. In an emergency, please contact the appropriate official emergency services directly whenever possible.',
   officialNumbersHeading: 'Official Nepal Emergency Hotlines:',
 
   actions: {
@@ -55,6 +58,22 @@ export const en = {
     caseTokenLabel: '6-Digit Verification PIN (Easy to remember)',
   },
 
+  gpsGuide: {
+    title: 'Important: How to Enable GPS for Rescue',
+    subtitle: 'Follow these 4 steps to ensure rescue teams receive your exact coordinates:',
+    step1Title: '1. Turn ON Device Location (GPS)',
+    step1Desc: 'Ensure location services or GPS is toggled ON in your phone / device settings or swipe-down menu.',
+    step2Title: '2. Click "Use My Current Location"',
+    step2Desc: 'Tap the red button below to trigger automatic satellite and network signal scanning.',
+    step3Title: '3. Allow Browser Permission',
+    step3Desc: 'When prompted by your browser, tap "Allow", "Turn On", or "While using the app".',
+    step4Title: '4. Choose "Precise" Location',
+    step4Desc: 'If asked between "Precise" and "Approximate", always choose "Precise" for highest rescue accuracy.',
+    understoodBtn: 'I Understood — Continue',
+    viewInstructionsBtn: 'GPS Instructions',
+    hideInstructionsBtn: 'Hide Instructions',
+  },
+
   tracking: {
     title: 'Track Rescue Request',
     enterCaseId: 'Enter Case ID Number (e.g., 2026104829)',
@@ -63,6 +82,9 @@ export const en = {
     currentStatus: 'Current Status',
     submittedAt: 'Submitted At',
     lastUpdate: 'Last Status Update',
+    downloadImage: 'Download Details as Image',
+    downloadingImage: 'Generating Image...',
+    downloadSuccess: 'Image saved to your device',
   },
 
 };

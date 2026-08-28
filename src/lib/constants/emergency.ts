@@ -102,4 +102,4 @@ export function calculatePriority(
 }
 
 export const DISCLAIMER_TEXT =
-  'Prototype emergency coordination service. Not an official emergency service. Submitting a request does not guarantee rescue. If possible, contact official emergency services directly.';
+  'Prototype Emergency Coordination Service: NepalSAR is an independent prototype and is not an official emergency service or government agency. Submitting a rescue request does not guarantee a response or rescue. In an emergency, please contact the appropriate official emergency services directly whenever possible.';
