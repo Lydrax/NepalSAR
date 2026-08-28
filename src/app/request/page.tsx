@@ -20,7 +20,6 @@ import {
   WifiOff,
   RefreshCw,
   Compass,
-  Radio,
   RotateCcw,
 } from 'lucide-react';
 import { getTranslations, Language } from '@/lib/i18n';
@@ -146,6 +145,21 @@ export default function RequestRescuePage() {
     setIsLocating(true);
     setLocationError(null);
     setLocatingAttempt(1);
+    const startTime = Date.now();
+
+    const finishWithMinimumDelay = (callback: () => void) => {
+      const elapsed = Date.now() - startTime;
+      const minDuration = 1000; // Guarantee at least 1-second animation feedback
+      if (elapsed < minDuration) {
+        setTimeout(() => {
+          if (!isLocatingCancelledRef.current) {
+            callback();
+          }
+        }, minDuration - elapsed);
+      } else {
+        callback();
+      }
+    };
 
     const attempts = [
       {
@@ -174,13 +188,15 @@ export default function RequestRescuePage() {
     const runAttempt = (index: number) => {
       if (isLocatingCancelledRef.current) return;
       if (index >= attempts.length) {
-        setIsLocating(false);
-        setLocatingStatusText(null);
-        setLocationError(
-          lang === 'ne'
-            ? '३ पटक खोजी गर्दा पनि जीपीएस संकेत प्राप्त भएन। कृपया तलको नक्सामा थिचेर आफ्नो स्थान छान्नुहोस् वा विवरण लेख्नुहोस्।'
-            : 'GPS signal could not be locked after 3 attempts. Please tap your location directly on the satellite map below or type your location description.'
-        );
+        finishWithMinimumDelay(() => {
+          setIsLocating(false);
+          setLocatingStatusText(null);
+          setLocationError(
+            lang === 'ne'
+              ? '३ पटक खोजी गर्दा पनि जीपीएस संकेत प्राप्त भएन। कृपया तलको नक्सामा थिचेर आफ्नो स्थान छान्नुहोस् वा विवरण लेख्नुहोस्।'
+              : 'GPS signal could not be locked after 3 attempts. Please tap your location directly on the satellite map below or type your location description.'
+          );
+        });
         return;
       }
 
@@ -190,30 +206,34 @@ export default function RequestRescuePage() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           if (isLocatingCancelledRef.current) return;
-          setLocation((prev) => ({
-            ...prev,
-            latitude: Number(pos.coords.latitude.toFixed(6)),
-            longitude: Number(pos.coords.longitude.toFixed(6)),
-            accuracy: Math.round(pos.coords.accuracy),
-            timestamp: new Date(pos.timestamp).toISOString(),
-            source: 'GPS',
-          }));
-          setIsLocating(false);
-          setLocatingStatusText(null);
-          setLocationError(null);
+          finishWithMinimumDelay(() => {
+            setLocation((prev) => ({
+              ...prev,
+              latitude: Number(pos.coords.latitude.toFixed(6)),
+              longitude: Number(pos.coords.longitude.toFixed(6)),
+              accuracy: Math.round(pos.coords.accuracy),
+              timestamp: new Date(pos.timestamp).toISOString(),
+              source: 'GPS',
+            }));
+            setIsLocating(false);
+            setLocatingStatusText(null);
+            setLocationError(null);
+          });
         },
         (err) => {
           if (isLocatingCancelledRef.current) return;
 
           // If explicitly denied, stop immediately and explain how to unblock
           if (err.code === err.PERMISSION_DENIED) {
-            setIsLocating(false);
-            setLocatingStatusText(null);
-            setLocationError(
-              lang === 'ne'
-                ? 'स्थान अनुमति अस्वीकार गरिएको छ। ब्राउजरको URL बारमा रहेको सेटिङ चिन्ह थिचेर स्थान अनुमति अन गर्नुहोस्, वा तलको नक्सामा सीधै आफ्नो स्थान छान्नुहोस्।'
-                : 'Location permission was denied or dismissed. To fix: allow location access in your browser settings, or simply tap your location directly on the satellite map below.'
-            );
+            finishWithMinimumDelay(() => {
+              setIsLocating(false);
+              setLocatingStatusText(null);
+              setLocationError(
+                lang === 'ne'
+                  ? 'स्थान अनुमति अस्वीकार गरिएको छ। ब्राउजरको URL बारमा रहेको सेटिङ चिन्ह थिचेर स्थान अनुमति अन गर्नुहोस्, वा तलको नक्सामा सीधै आफ्नो स्थान छान्नुहोस्।'
+                  : 'Location permission was denied or dismissed. To fix: allow location access in your browser settings, or simply tap your location directly on the satellite map below.'
+              );
+            });
             return;
           }
 
@@ -401,7 +421,7 @@ export default function RequestRescuePage() {
                 <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3.5 shadow-md border border-slate-800 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2.5 font-bold text-sm text-red-400">
-                      <Radio className="w-5 h-5 text-red-500 animate-pulse shrink-0" />
+                      <Navigation className="w-5 h-5 text-red-500 animate-spin shrink-0" />
                       <span>Acquiring Coordinates</span>
                     </div>
                     <span className="text-[11px] font-mono font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">
@@ -411,7 +431,7 @@ export default function RequestRescuePage() {
 
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold text-slate-100 flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 text-red-400 animate-spin shrink-0" />
+                      <Navigation className="w-3.5 h-3.5 text-red-400 animate-spin shrink-0" />
                       <span>{locatingStatusText || 'Searching for GPS signal...'}</span>
                     </p>
                     <p className="text-[11px] text-slate-400">
@@ -464,11 +484,12 @@ export default function RequestRescuePage() {
                     <button
                       type="button"
                       onClick={handleAcquireLocation}
+                      disabled={isLocating}
                       className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer"
                       title="Re-run GPS signal lock"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Re-check GPS</span>
+                      <RotateCcw className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+                      <span>{isLocating ? 'Acquiring...' : 'Re-check GPS'}</span>
                     </button>
                   </div>
 
@@ -508,10 +529,11 @@ export default function RequestRescuePage() {
                     <button
                       type="button"
                       onClick={handleAcquireLocation}
-                      className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={isLocating}
+                      className="px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white font-bold rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer shadow-xs active:bg-red-900"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>{t.actions.retryGps}</span>
+                      <RotateCcw className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+                      <span>{isLocating ? (lang === 'ne' ? 'खोज्दैछ...' : 'Searching...') : t.actions.retryGps}</span>
                     </button>
                   </div>
                 </div>
