@@ -126,6 +126,7 @@ export default function ResponderOperationsPage() {
 
   // Loading & Action states
   const [isLoadingQueue, setIsLoadingQueue] = useState<boolean>(true);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [queueSyncError, setQueueSyncError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -307,6 +308,7 @@ export default function ResponderOperationsPage() {
             if (typeof data.activeCount === 'number') setActiveCount(data.activeCount);
             if (typeof data.closedCount === 'number') setClosedCount(data.closedCount);
             setQueueSyncError(null);
+            setLastSyncedAt(new Date());
             return true;
           }
           return false;
@@ -379,17 +381,104 @@ export default function ResponderOperationsPage() {
     }
   }, [authToken, fetchQueue]);
 
-  // Polling fallback every 20 seconds
+  // Instant Live Synchronization via Supabase Realtime, BroadcastChannel, Storage Events, and Adaptive Polling
   useEffect(() => {
     if (!authToken) return;
+
+    // 1. Supabase Postgres Realtime Subscription (for immediate database change events)
+    let realtimeChannel: ReturnType<typeof supabaseBrowser.channel> | null = null;
+    try {
+      realtimeChannel = supabaseBrowser
+        .channel('public:rescue_requests:dispatch_live')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rescue_requests' },
+          () => {
+            fetchQueue(true);
+            if (selectedCaseId) {
+              fetchCaseDetail(selectedCaseId);
+            }
+          }
+        )
+        .subscribe();
+    } catch {
+      // Graceful fallback to broadcast & polling
+    }
+
+    // 2. Cross-Tab / Cross-Window BroadcastChannel (Instant 0ms sync when user submits request)
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('nepal_sar_dispatch_sync');
+        bc.onmessage = () => {
+          fetchQueue(true);
+          if (selectedCaseId) {
+            fetchCaseDetail(selectedCaseId);
+          }
+        };
+      } catch {
+        // Fallback
+      }
+    }
+
+    // 3. Storage Event and Custom Event listeners
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'nepal_sar_last_dispatch_event') {
+        fetchQueue(true);
+        if (selectedCaseId) {
+          fetchCaseDetail(selectedCaseId);
+        }
+      }
+    };
+
+    const handleCustomEvent = () => {
+      fetchQueue(true);
+      if (selectedCaseId) {
+        fetchCaseDetail(selectedCaseId);
+      }
+    };
+
+    // 4. Window Focus & Visibility sync
+    const handleFocus = () => {
+      fetchQueue(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchQueue(true);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+      window.addEventListener('nepal_sar_dispatch_update', handleCustomEvent);
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    // 5. Periodic background polling fallback (every 12 seconds)
     const interval = setInterval(() => {
       fetchQueue(true);
       if (selectedCaseId) {
         fetchCaseDetail(selectedCaseId);
       }
-    }, 20000);
+    }, 12000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (realtimeChannel) {
+        supabaseBrowser.removeChannel(realtimeChannel);
+      }
+      if (bc) {
+        bc.close();
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorage);
+        window.removeEventListener('nepal_sar_dispatch_update', handleCustomEvent);
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, [authToken, fetchQueue, fetchCaseDetail, selectedCaseId]);
 
   // When a case is selected from queue or map or directory
@@ -410,6 +499,27 @@ export default function ResponderOperationsPage() {
   };
 
   // Workflow Actions
+  const broadcastDispatchUpdate = (actionType: string) => {
+    if (typeof window !== 'undefined') {
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('nepal_sar_dispatch_sync');
+          bc.postMessage({ type: actionType, timestamp: Date.now() });
+          bc.close();
+        }
+        localStorage.setItem(
+          'nepal_sar_last_dispatch_event',
+          JSON.stringify({ type: actionType, timestamp: Date.now() })
+        );
+        window.dispatchEvent(
+          new CustomEvent('nepal_sar_dispatch_update', { detail: { type: actionType } })
+        );
+      } catch {
+        // Non-blocking
+      }
+    }
+  };
+
   const handleVerify = async () => {
     if (!selectedCaseId || !authToken) return;
     setActionInProgress('verify');
@@ -430,6 +540,7 @@ export default function ResponderOperationsPage() {
 
       await fetchCaseDetail(selectedCaseId);
       await fetchQueue(true);
+      broadcastDispatchUpdate('VERIFY_CASE');
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Action failed.');
     } finally {
@@ -457,6 +568,7 @@ export default function ResponderOperationsPage() {
 
       await fetchCaseDetail(selectedCaseId);
       await fetchQueue(true);
+      broadcastDispatchUpdate('ASSIGN_CASE');
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Action failed.');
     } finally {
@@ -491,6 +603,7 @@ export default function ResponderOperationsPage() {
       setActionSuccessMessage(`Status updated to ${targetStatus}`);
       await fetchCaseDetail(selectedCaseId);
       await fetchQueue(true);
+      broadcastDispatchUpdate(`STATUS_${targetStatus}`);
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Status update failed.');
     } finally {
@@ -557,6 +670,7 @@ export default function ResponderOperationsPage() {
         await fetchCaseDetail(caseIdToCancel);
       }
       await fetchQueue(true);
+      broadcastDispatchUpdate('CANCEL_CASE');
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Cancellation failed.');
     } finally {
@@ -690,11 +804,12 @@ export default function ResponderOperationsPage() {
 
             <button
               onClick={() => fetchQueue(false)}
-              className="p-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg border border-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
-              title="Refresh queue"
+              className="p-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title="Refresh dispatch queue from server"
+              aria-label="Refresh Queue"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQueue ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Sync</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQueue ? 'animate-spin text-red-600' : 'text-slate-600'}`} />
+              <span className="hidden sm:inline">Refresh Queue</span>
             </button>
             <button
               onClick={handleSignOut}
@@ -756,7 +871,23 @@ export default function ResponderOperationsPage() {
                   <span className="flex items-center gap-1.5 font-bold text-slate-900 text-xs sm:text-sm">
                     <Filter className="w-4 h-4 text-slate-700" /> ACTIVE DISPATCH QUEUE ({cases.length})
                   </span>
-                  <span className="text-xs text-slate-500 font-medium">Auto-poll 20s</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"
+                      title="Instant live sync active across all tabs and database updates"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Live Sync
+                    </span>
+                    <button
+                      onClick={() => fetchQueue(false)}
+                      className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                      title="Refresh Active Queue immediately"
+                      aria-label="Refresh Active Queue"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQueue ? 'animate-spin text-red-600' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Priority Filters */}
@@ -801,6 +932,13 @@ export default function ResponderOperationsPage() {
                     </button>
                   ))}
                 </div>
+
+                {lastSyncedAt && (
+                  <div className="text-[10px] text-slate-400 font-mono px-0.5 flex items-center justify-between pt-0.5">
+                    <span>Instant sync active</span>
+                    <span>Updated: {lastSyncedAt.toLocaleTimeString()}</span>
+                  </div>
+                )}
               </div>
 
               {/* Connection / Sync Notification Banner */}
@@ -1249,7 +1387,17 @@ export default function ResponderOperationsPage() {
             {/* Left: Directory Record Cards */}
             <div className="lg:col-span-7 space-y-3">
               <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-600 uppercase px-1">
-                <span>Archived Incident Records ({cases.length})</span>
+                <div className="flex items-center gap-2">
+                  <span>Archived Incident Records ({cases.length})</span>
+                  <button
+                    onClick={() => fetchQueue(false)}
+                    className="p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 rounded transition-colors"
+                    title="Refresh archived incident records"
+                    aria-label="Refresh archived incident records"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQueue ? 'animate-spin text-slate-900' : ''}`} />
+                  </button>
+                </div>
                 <span>Sorted by Recent Resolution</span>
               </div>
 

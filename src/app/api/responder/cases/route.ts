@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-export const runtime = 'edge';
-
 import { validateResponderAuth } from '@/lib/services/responderAuth';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { PriorityLevel, RescueCaseStatus } from '@/lib/types/emergency';

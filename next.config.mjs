@@ -1,8 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  distDir: process.env.NODE_ENV === 'production' ? '.next' : '.next_dev',
   reactStrictMode: true,
   poweredByHeader: false,
+  webpack: (config, { dev }) => {
+    if (!dev) {
+      config.cache = false;
+    }
+    return config;
+  },
   async headers() {
     return [
       {

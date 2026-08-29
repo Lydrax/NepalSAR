@@ -341,6 +341,32 @@ export default function RequestRescuePage() {
       } else {
         throw new Error('Submission succeeded but no verification credential was returned.');
       }
+
+      // Notify any active Command Panels / Dispatch operations tabs for instant queue update
+      if (typeof window !== 'undefined') {
+        try {
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('nepal_sar_dispatch_sync');
+            bc.postMessage({
+              type: 'NEW_RESCUE_SUBMITTED',
+              caseNumber: resData.caseNumber,
+              timestamp: Date.now(),
+            });
+            bc.close();
+          }
+          localStorage.setItem('nepal_sar_last_dispatch_event', JSON.stringify({
+            type: 'NEW_RESCUE_SUBMITTED',
+            caseNumber: resData.caseNumber,
+            timestamp: Date.now(),
+          }));
+          window.dispatchEvent(new CustomEvent('nepal_sar_dispatch_update', {
+            detail: { type: 'NEW_RESCUE_SUBMITTED', caseNumber: resData.caseNumber },
+          }));
+        } catch {
+          // Non-blocking notification
+        }
+      }
+
       setCurrentStep(8); // Success step
     } catch (err: unknown) {
       const message =
